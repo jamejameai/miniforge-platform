@@ -27,7 +27,24 @@ import {
   Zap,
   Tag,
   Check,
-  Rocket
+  Rocket,
+  Cpu,
+  Brain,
+  Bell,
+  CreditCard,
+  Key,
+  Sliders,
+  Users,
+  ShieldCheck,
+  Receipt,
+  FileText,
+  Boxes,
+  Plug,
+  Mail,
+  Moon,
+  ChevronRight,
+  Globe,
+  Smartphone
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
@@ -43,6 +60,7 @@ export default function WorkspaceDashboard() {
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [activeNavTab, setActiveNavTab] = useState("apps");
 
   // Creation Modes: 'idea' | 'template' | 'scratch'
   const [creationTab, setCreationTab] = useState<"idea" | "template" | "scratch">("idea");
@@ -99,8 +117,8 @@ export default function WorkspaceDashboard() {
       setIsGeneratingBlueprint(true);
       setBlueprint(null);
       const res = await api.generateBlueprint(ideaPrompt.trim());
-      setBlueprint(res);
-      showToast("Product Blueprint generated successfully!", "success");
+      setBlueprint(res.blueprint);
+      showToast("Product Blueprint generated!", "success");
     } catch (err: any) {
       showToast(err.message || "Failed to generate blueprint.", "error");
     } finally {
@@ -108,69 +126,61 @@ export default function WorkspaceDashboard() {
     }
   };
 
-  const handleInstantiateBlueprint = async () => {
+  const handleBuildFromBlueprint = async () => {
     if (!blueprint) return;
     try {
       setIsBuildingFromBlueprint(true);
-      const app = await api.instantiateBlueprint(blueprint, true);
-      showToast(`Application "${app.name}" created! Opening Studio...`, "success");
+      const res = await api.instantiateBlueprint(blueprint);
+      showToast(`Created application "${res.app.name}"!`, "success");
       setIsCreateOpen(false);
-      router.push(`/studio/${app.id}`);
+      router.push(`/studio/${res.app.id}`);
     } catch (err: any) {
-      showToast(err.message || "Failed to instantiate blueprint.", "error");
+      showToast(err.message || "Failed to create app from blueprint.", "error");
     } finally {
       setIsBuildingFromBlueprint(false);
     }
   };
 
-  const handleInstantiateTemplate = async (templateId: string) => {
+  const handleInstantiateTemplate = async () => {
     try {
       setIsInstantiatingTemplate(true);
-      const app = await api.instantiateTemplate(templateId);
-      showToast(`Application "${app.name}" created from template! Opening Studio...`, "success");
+      const res = await api.instantiateTemplate(selectedTemplateId);
+      showToast(`Instantiated template "${res.app.name}"!`, "success");
       setIsCreateOpen(false);
-      router.push(`/studio/${app.id}`);
+      router.push(`/studio/${res.app.id}`);
     } catch (err: any) {
-      showToast(err.message || "Failed to launch template.", "error");
+      showToast(err.message || "Failed to instantiate template.", "error");
     } finally {
       setIsInstantiatingTemplate(false);
     }
   };
 
   const handleCreateScratch = async () => {
-    if (!newAppName.trim()) return;
+    if (!newAppName.trim()) {
+      showToast("Please provide an application name.", "error");
+      return;
+    }
     try {
       setIsCreatingScratch(true);
-      const app = await api.createApp(newAppName.trim(), newAppDesc.trim());
-      showToast(`Application "${app.name}" created! Opening Studio...`, "success");
+      const app = await api.createApp(
+        newAppName.trim(),
+        newAppDesc.trim() || undefined
+      );
+      showToast("Application created successfully!", "success");
       setIsCreateOpen(false);
       router.push(`/studio/${app.id}`);
     } catch (err: any) {
-      showToast(err.message || "Failed to create app.", "error");
+      showToast(err.message || "Failed to create application.", "error");
     } finally {
       setIsCreatingScratch(false);
     }
   };
 
-  const handleDuplicate = async (appId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to permanently delete "${name}"?`)) return;
     try {
-      const dup = await api.duplicateApp(appId);
-      showToast(`Duplicated as "${dup.name}"`, "success");
-      loadApps();
-    } catch (err: any) {
-      showToast(err.message || "Failed to duplicate app.", "error");
-    }
-  };
-
-  const handleDelete = async (appId: string, appName: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!confirm(`Are you sure you want to delete "${appName}"? This cannot be undone.`)) return;
-    try {
-      await api.deleteApp(appId);
-      showToast(`Deleted application "${appName}"`, "info");
+      await api.deleteApp(id);
+      showToast(`Deleted "${name}"`, "success");
       loadApps();
     } catch (err: any) {
       showToast(err.message || "Failed to delete app.", "error");
@@ -183,564 +193,435 @@ export default function WorkspaceDashboard() {
       a.slug.toLowerCase().includes(search.toLowerCase())
   );
 
-  const publishedCount = apps.filter((a) => a.is_published).length;
-
-  const categories = ["All", ...Array.from(new Set(templates.map((t) => t.category)))];
-  const filteredTemplates = templates.filter(
-    (t) => templateCategoryFilter === "All" || t.category === templateCategoryFilter
-  );
-
   return (
-    <div className="min-h-screen bg-[#F7F7F8] flex flex-col">
-      {/* Top Navigation */}
-      <header className="h-14 bg-white border-b border-[#E8E8EA] px-8 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#D4146E] text-white flex items-center justify-center font-bold text-sm tracking-wide">
-            MF
+    <div className="min-h-screen bg-[#F8FAFC] flex">
+      {/* LEFT NAVIGATION SIDEBAR (Exact match to Appy/MiniForge Reference) */}
+      <aside className="w-64 bg-white border-r border-[#E2E8F0] flex flex-col shrink-0 select-none">
+        {/* Brand Logo Header */}
+        <div className="p-5 border-b border-[#E2E8F0] flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm">
+            <Brain className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-[#171717] leading-none">MiniForge</h1>
-            <span className="text-[10px] text-[#777777] font-medium">Visual Application Platform</span>
+            <h1 className="text-base font-bold text-gray-900 leading-tight">MiniForge</h1>
+            <p className="text-[11px] text-gray-400 font-medium">Build native apps</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-[#F7F7F8] px-3 py-1.5 rounded-full border border-[#E8E8EA] text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-medium text-[#171717]">Production Ready</span>
+        {/* Sidebar Nav Items */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          {/* Section: DASHBOARD */}
+          <div className="space-y-1">
+            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Dashboard
+            </div>
+            <button
+              onClick={() => setActiveNavTab("apps")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                activeNavTab === "apps"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>Apps</span>
+            </button>
+            <button
+              onClick={() => setActiveNavTab("assistant")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                activeNavTab === "assistant"
+                  ? "bg-blue-600 text-white shadow-xs font-semibold"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <Bot className="w-4 h-4" />
+              <span>Assistant</span>
+            </button>
+            <button
+              onClick={() => setActiveNavTab("notifications")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                activeNavTab === "notifications"
+                  ? "bg-blue-600 text-white shadow-xs font-semibold"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <Bell className="w-4 h-4" />
+              <span>Notifications</span>
+            </button>
+            <button
+              onClick={() => setActiveNavTab("billing")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                activeNavTab === "billing"
+                  ? "bg-blue-600 text-white shadow-xs font-semibold"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>Billing</span>
+            </button>
+            <button
+              onClick={() => setActiveNavTab("api_keys")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                activeNavTab === "api_keys"
+                  ? "bg-blue-600 text-white shadow-xs font-semibold"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <Key className="w-4 h-4" />
+              <span>API Keys</span>
+            </button>
+            <button
+              onClick={() => setActiveNavTab("settings")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                activeNavTab === "settings"
+                  ? "bg-blue-600 text-white shadow-xs font-semibold"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <Sliders className="w-4 h-4" />
+              <span>Settings</span>
+            </button>
           </div>
+
+          {/* Section: ADMINISTRATION */}
+          <div className="space-y-1">
+            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Administration
+            </div>
+            {[
+              { id: "overview", label: "Overview", icon: Activity },
+              { id: "users", label: "Users", icon: Users },
+              { id: "subscriptions", label: "Subscriptions", icon: ShieldCheck },
+              { id: "transactions", label: "Transactions", icon: Receipt },
+              { id: "plans", label: "Plans", icon: Tag },
+              { id: "builders", label: "Builders", icon: Boxes },
+              { id: "plugins", label: "Plugins", icon: Plug },
+              { id: "email_templates", label: "Email Templates", icon: Mail },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveNavTab(item.id)}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${
+                    activeNavTab === item.id
+                      ? "bg-blue-600 text-white shadow-xs font-semibold"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 text-gray-400" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-[#E2E8F0] flex items-center justify-between text-gray-400">
+          <button className="p-1.5 rounded-lg hover:bg-gray-100 hover:text-gray-700 transition-colors">
+            <Moon className="w-4 h-4" />
+          </button>
+          <span className="text-[10px] font-mono">v1.2.0</span>
+        </div>
+      </aside>
+
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        {/* Top Header Row with Icon, Title, and Create Button */}
+        <header className="p-8 pb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center">
+              <Brain className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 leading-tight">Apps</h2>
+              <p className="text-xs text-gray-500">Create and manage your applications</p>
+            </div>
+          </div>
+
           <Button
             variant="primary"
-            size="sm"
+            size="default"
             onClick={() => setIsCreateOpen(true)}
-            className="gap-1.5 text-xs font-semibold"
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl px-5 py-2.5 shadow-sm active:scale-95 transition-all text-xs"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Create Application</span>
+            <Plus className="w-4 h-4" />
+            <span>Create App</span>
           </Button>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Workspace Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-8 space-y-6">
-        {/* Metric Cards Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-[#E8E8EA] shadow-xs">
-            <div className="flex items-center justify-between text-xs text-[#777777] mb-2 font-medium">
-              <span>Total Applications</span>
-              <Layers className="w-4 h-4 text-[#D4146E]" />
-            </div>
-            <div className="text-2xl font-bold text-[#171717]">{apps.length}</div>
-            <div className="text-[11px] text-[#777777] mt-1">Multi-tenant isolated workspaces</div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-[#E8E8EA] shadow-xs">
-            <div className="flex items-center justify-between text-xs text-[#777777] mb-2 font-medium">
-              <span>Published Live</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="text-2xl font-bold text-[#171717]">{publishedCount}</div>
-            <div className="text-[11px] text-emerald-700 mt-1">Serving Telegram + Web</div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-[#E8E8EA] shadow-xs">
-            <div className="flex items-center justify-between text-xs text-[#777777] mb-2 font-medium">
-              <span>Connected Bots</span>
-              <Bot className="w-4 h-4 text-sky-600" />
-            </div>
-            <div className="text-2xl font-bold text-[#171717]">{publishedCount > 0 ? 1 : 0}</div>
-            <div className="text-[11px] text-[#777777] mt-1">HMAC-SHA256 verified</div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-[#E8E8EA] shadow-xs">
-            <div className="flex items-center justify-between text-xs text-[#777777] mb-2 font-medium">
-              <span>Execution Engine</span>
-              <Activity className="w-4 h-4 text-[#D4146E]" />
-            </div>
-            <div className="text-2xl font-bold text-[#171717]">FastAPI + React</div>
-            <div className="text-[11px] text-[#777777] mt-1">Sub-10ms snapshot rendering</div>
+        {/* Search Bar Input */}
+        <div className="px-8 py-3">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search apps by name or URL..."
+              className="w-full pl-10 pr-4 py-2.5 text-xs bg-white border border-[#E2E8F0] rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-2xs transition-all"
+            />
           </div>
         </div>
 
-        {/* Applications List Area */}
-        <div className="bg-white rounded-xl border border-[#E8E8EA] shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-[#E8E8EA] flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold text-[#171717]">My Applications</h2>
-              <p className="text-xs text-[#777777]">Manage, design, and publish your visual software applications</p>
-            </div>
-
-            <div className="relative w-72">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777777]" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search applications..."
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#F7F7F8] border border-[#E8E8EA] rounded-md focus:outline-none focus:border-[#D4146E] text-[#171717]"
-              />
-            </div>
-          </div>
-
+        {/* Apps Grid (3 Columns, Exact Appy Layout) */}
+        <main className="p-8 pt-4">
           {isLoading ? (
-            <div className="p-12 text-center text-xs text-[#777777]">Loading workspace applications...</div>
+            <div className="py-20 text-center text-xs text-gray-400">Loading your applications...</div>
           ) : filteredApps.length === 0 ? (
-            <div className="p-12 text-center space-y-3">
-              <div className="w-10 h-10 rounded-full bg-[#F7F7F8] text-[#777777] flex items-center justify-center mx-auto border border-[#E8E8EA]">
-                <Layers className="w-5 h-5" />
+            <div className="bg-white rounded-2xl border border-[#E2E8F0] p-12 text-center space-y-3 shadow-2xs">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+                <Layers className="w-6 h-6" />
               </div>
-              <h3 className="text-sm font-semibold text-[#171717]">No applications found</h3>
-              <p className="text-xs text-[#777777] max-w-sm mx-auto">
-                Create your first visual application or start with one of our pre-built templates.
+              <h3 className="text-base font-bold text-gray-900">No applications found</h3>
+              <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                Start by creating your first application or pick from 12 pre-built templates.
               </p>
               <Button
                 variant="primary"
-                size="sm"
                 onClick={() => setIsCreateOpen(true)}
-                className="text-xs gap-1.5"
+                className="bg-blue-600 text-white text-xs gap-1.5 rounded-xl mt-2"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Create Application</span>
+                <Plus className="w-4 h-4" />
+                <span>Create App Now</span>
               </Button>
             </div>
           ) : (
-            <div className="divide-y divide-[#E8E8EA]">
-              {filteredApps.map((app) => (
-                <div
-                  key={app.id}
-                  className="p-4 hover:bg-[#F7F7F8]/80 transition-colors flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-[#171717] text-white flex items-center justify-center font-bold text-sm shrink-0">
-                      {app.name.slice(0, 2).toUpperCase()}
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredApps.map((app, index) => {
+                const isPublished = (app.active_version_number || 0) > 0;
+                // Alternate tags for visual variety matching screenshot
+                const layoutTags = [
+                  "<> App Bar + Drawer",
+                  "<> Blank",
+                  "<> App Bar + Tabs",
+                  "<> Navigation Rail"
+                ];
+                const tag = layoutTags[index % layoutTags.length];
+
+                return (
+                  <div
+                    key={app.id}
+                    className="bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-2xs hover:shadow-card hover:border-blue-200 transition-all flex flex-col justify-between"
+                  >
                     <div>
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/studio/${app.id}`}
-                          className="font-bold text-sm text-[#171717] hover:text-[#D4146E] transition-colors"
-                        >
-                          {app.name}
-                        </Link>
-                        {app.is_published ? (
-                          <Badge variant="success" className="text-[10px]">
-                            Live v{app.active_version_number}
-                          </Badge>
+                      {/* Top Row: App Icon & Deployment Badges */}
+                      <div className="flex items-start justify-between">
+                        <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs">
+                          <Brain className="w-6 h-6" />
+                        </div>
+
+                        <div className="flex flex-col items-end gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span>Telegram + Web</span>
+                          </span>
+                          <span className="inline-flex items-center text-[10px] font-mono text-purple-600 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
+                            {tag}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* App Name & URL */}
+                      <div className="mt-4">
+                        <h3 className="text-base font-bold text-gray-900 truncate">{app.name}</h3>
+                        <p className="text-xs text-gray-400 font-mono mt-0.5 truncate">
+                          https://miniforge.app/r/{app.slug}
+                        </p>
+                      </div>
+
+                      {/* Build Status Tag */}
+                      <div className="mt-3 text-xs">
+                        {isPublished ? (
+                          <span className="text-gray-500">
+                            Latest build: <strong className="text-emerald-600 font-semibold">Completed (v{app.active_version_number})</strong>
+                          </span>
                         ) : (
-                          <Badge variant="outline" className="text-[10px]">
-                            Draft
-                          </Badge>
+                          <span className="text-gray-400">No builds yet (Draft)</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-[#777777]">
-                        <span className="font-mono">/{app.slug}</span>
-                        <span>•</span>
-                        <span>{app.draft_spec?.pages?.length || 1} pages</span>
-                        <span>•</span>
-                        <span>Updated recently</span>
-                      </div>
+                    </div>
+
+                    {/* Bottom Action Buttons: Edit (Blue) & Delete (Red Outline) */}
+                    <div className="mt-5 pt-4 border-t border-gray-100 flex items-center gap-2">
+                      <Link
+                        href={`/studio/${app.id}`}
+                        className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl text-center shadow-xs transition-colors"
+                      >
+                        Edit
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(app.id, app.name)}
+                        className="flex-1 py-2 border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold rounded-xl text-center transition-colors"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
-
-                  {/* Actions Row */}
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/r/${app.slug}`}
-                      target="_blank"
-                      className="px-2.5 py-1.5 rounded-md text-xs font-medium text-[#171717] hover:bg-white border border-transparent hover:border-[#E8E8EA] flex items-center gap-1 transition-colors"
-                    >
-                      <span>Web View</span>
-                      <ArrowUpRight className="w-3 h-3 text-[#777777]" />
-                    </Link>
-                    <Link
-                      href={`/tg/${app.slug}`}
-                      target="_blank"
-                      className="px-2.5 py-1.5 rounded-md text-xs font-medium text-sky-700 hover:bg-sky-50 border border-transparent hover:border-sky-200 flex items-center gap-1 transition-colors"
-                    >
-                      <Bot className="w-3.5 h-3.5" />
-                      <span>Telegram</span>
-                    </Link>
-                    <button
-                      onClick={(e) => handleDuplicate(app.id, e)}
-                      className="p-1.5 rounded-md text-[#777777] hover:text-[#171717] hover:bg-white border border-transparent hover:border-[#E8E8EA] transition-colors"
-                      title="Duplicate"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={(e) => handleDelete(app.id, app.name, e)}
-                      className="p-1.5 rounded-md text-[#777777] hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                    <Link href={`/studio/${app.id}`}>
-                      <Button variant="secondary" size="sm" className="text-xs">
-                        Open Studio
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
-        </div>
-      </main>
+        </main>
+      </div>
 
-      {/* Multi-Door Creation Modal (Idea -> Blueprint, 12 Templates, Scratch) */}
+      {/* Creation Modal (Retaining AI Blueprint, 12 Templates & Blank options) */}
       <Modal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        title="Create Something New"
-        description="Turn your idea into a production-ready Telegram Mini App & Standalone Web platform."
+        title="Create New Application"
+        description="Choose how you want to build your visual Telegram Mini App or Web App."
       >
-        <div className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
-          {/* Creation Mode Switcher Tabs */}
-          <div className="flex border-b border-[#E8E8EA] bg-[#F7F7F8] p-1 rounded-lg gap-1">
+        <div className="space-y-4 pt-2">
+          {/* Mode Switcher Tabs */}
+          <div className="flex border-b border-[#E2E8F0] gap-4 text-xs font-semibold">
             <button
               onClick={() => setCreationTab("idea")}
-              className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              className={`pb-2 border-b-2 flex items-center gap-1.5 transition-colors ${
                 creationTab === "idea"
-                  ? "bg-white text-[#D4146E] shadow-xs"
-                  : "text-[#777777] hover:text-[#171717]"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-400 hover:text-gray-900"
               }`}
             >
-              <Wand2 className="w-3.5 h-3.5 text-[#D4146E]" />
-              <span>Start with an Idea</span>
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>AI Idea Blueprint</span>
             </button>
-
             <button
               onClick={() => setCreationTab("template")}
-              className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              className={`pb-2 border-b-2 flex items-center gap-1.5 transition-colors ${
                 creationTab === "template"
-                  ? "bg-white text-[#D4146E] shadow-xs"
-                  : "text-[#777777] hover:text-[#171717]"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-400 hover:text-gray-900"
               }`}
             >
-              <LayoutTemplate className="w-3.5 h-3.5 text-[#171717]" />
-              <span>Templates ({templates.length || 12})</span>
+              <LayoutTemplate className="w-3.5 h-3.5" />
+              <span>Templates (12)</span>
             </button>
-
             <button
               onClick={() => setCreationTab("scratch")}
-              className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              className={`pb-2 border-b-2 flex items-center gap-1.5 transition-colors ${
                 creationTab === "scratch"
-                  ? "bg-white text-[#D4146E] shadow-xs"
-                  : "text-[#777777] hover:text-[#171717]"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-400 hover:text-gray-900"
               }`}
             >
-              <FileCode2 className="w-3.5 h-3.5 text-[#777777]" />
+              <FileCode2 className="w-3.5 h-3.5" />
               <span>Blank Project</span>
             </button>
           </div>
 
-          {/* TAB 1: START WITH AN IDEA (AI PRODUCT PLANNING BLUEPRINT) */}
+          {/* TAB 1: AI IDEA BLUEPRINT */}
           {creationTab === "idea" && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-[#171717] mb-1">
-                  Describe what you want to build
-                </label>
-                <textarea
-                  value={ideaPrompt}
-                  onChange={(e) => setIdeaPrompt(e.target.value)}
-                  placeholder="e.g. A modern organic pizzeria where patrons can browse the menu, book a dining table, place orders ahead with cash/card, and receive automatic confirmation alerts in Telegram."
-                  rows={3}
-                  className="w-full p-3 text-xs bg-white border border-[#E8E8EA] rounded-lg text-[#171717] placeholder:text-[#777777] focus:outline-none focus:ring-1 focus:ring-[#D4146E]"
-                />
-              </div>
+            <div className="space-y-3">
+              <label className="text-xs font-semibold text-gray-900">
+                Describe your application idea in plain English:
+              </label>
+              <textarea
+                value={ideaPrompt}
+                onChange={(e) => setIdeaPrompt(e.target.value)}
+                placeholder="e.g. A boutique bakery in Paris with an artisan pastry menu, cart, pickup order confirmation, and low-stock inventory alerts."
+                className="w-full h-24 p-3 text-xs bg-white border border-[#E2E8F0] rounded-xl text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-2xs"
+              />
 
-              {/* Suggestion Chips */}
-              <div className="space-y-1.5">
-                <span className="text-[10px] uppercase font-bold text-[#777777] tracking-wider">
-                  Popular Starting Concepts
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    "Organic Pizzeria with table booking & Telegram alerts",
-                    "Luxury Barbershop appointment timeslots & specialist profiles",
-                    "Full-Stack Academy course catalog with admission forms",
-                    "Direct-to-Consumer Fashion boutique with express POS checkout",
-                  ].map((s, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setIdeaPrompt(s)}
-                      className="text-[11px] bg-[#F7F7F8] hover:bg-white text-[#171717] px-2.5 py-1 rounded-full border border-[#E8E8EA] transition-colors"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {!blueprint && (
-                <div className="flex justify-end pt-2">
+              {blueprint ? (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2 text-xs">
+                  <div className="font-bold text-blue-900 flex items-center justify-between">
+                    <span>{blueprint.appName}</span>
+                    <Badge variant="blue" className="text-[10px]">
+                      Ready
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-blue-800">{blueprint.tagline}</p>
                   <Button
                     variant="primary"
                     size="sm"
-                    onClick={handleGenerateBlueprint}
-                    disabled={isGeneratingBlueprint || !ideaPrompt.trim()}
-                    className="text-xs gap-1.5"
+                    onClick={handleBuildFromBlueprint}
+                    disabled={isBuildingFromBlueprint}
+                    className="w-full bg-blue-600 text-white rounded-xl text-xs gap-1"
                   >
-                    <Wand2 className="w-3.5 h-3.5" />
-                    <span>{isGeneratingBlueprint ? "Analyzing & Planning Blueprint..." : "Generate Product Blueprint"}</span>
+                    <Rocket className="w-3.5 h-3.5" />
+                    <span>Instantiate & Open Studio</span>
                   </Button>
                 </div>
-              )}
-
-              {/* Generated Interactive Blueprint Review */}
-              {blueprint && (
-                <div className="p-4 rounded-xl border border-pink-200 bg-pink-50/20 space-y-4 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between border-b border-pink-200 pb-2">
-                    <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4146E]">
-                        AI Product Consultant Blueprint
-                      </span>
-                      <h3 className="text-base font-bold text-[#171717] mt-0.5">{blueprint.app_name}</h3>
-                    </div>
-                    <Badge variant="pink" className="text-[11px]">{blueprint.category}</Badge>
-                  </div>
-
-                  <p className="text-xs text-[#555555] leading-relaxed">
-                    {blueprint.purpose}
-                  </p>
-
-                  {/* Target Users & Roles */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="bg-white p-3 rounded-lg border border-[#E8E8EA]">
-                      <span className="text-[10px] font-bold uppercase text-[#777777] block mb-1">Target Users</span>
-                      <div className="flex flex-wrap gap-1">
-                        {blueprint.target_users?.map((u: string, idx: number) => (
-                          <span key={idx} className="bg-[#F7F7F8] px-2 py-0.5 rounded text-[11px] text-[#171717]">
-                            {u}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="bg-white p-3 rounded-lg border border-[#E8E8EA]">
-                      <span className="text-[10px] font-bold uppercase text-[#777777] block mb-1">User Roles</span>
-                      <div className="space-y-1">
-                        {blueprint.roles?.map((r: any, idx: number) => (
-                          <div key={idx} className="text-[11px]">
-                            <strong className="text-[#171717]">{r.role}:</strong> <span className="text-[#777777]">{r.description}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Planned Sitemap */}
-                  <div className="bg-white p-3 rounded-lg border border-[#E8E8EA] space-y-1.5">
-                    <span className="text-[10px] font-bold uppercase text-[#777777] block">Planned Navigation Sitemap</span>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {blueprint.sitemap?.map((p: any, idx: number) => (
-                        <div key={idx} className="p-2 bg-[#F7F7F8] rounded border border-[#E8E8EA]">
-                          <div className="font-semibold text-xs text-[#171717]">{p.name}</div>
-                          <div className="text-[10px] text-[#777777] font-mono">{p.path}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Feature Breakdown: Essential vs Recommended */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="bg-white p-3 rounded-lg border border-[#E8E8EA]">
-                      <span className="text-[10px] font-bold uppercase text-emerald-700 block mb-1">
-                        Essential Features (P0)
-                      </span>
-                      <ul className="space-y-1 text-[11px] text-[#555555]">
-                        {blueprint.features?.essential?.map((f: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-1.5">
-                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                            <span>{f}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="bg-white p-3 rounded-lg border border-[#E8E8EA]">
-                      <span className="text-[10px] font-bold uppercase text-sky-700 block mb-1">
-                        Recommended Automations (P1)
-                      </span>
-                      <ul className="space-y-1 text-[11px] text-[#555555]">
-                        {blueprint.features?.recommended?.map((f: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-1.5">
-                            <Zap className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
-                            <span>{f}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* Blueprint Database Tables & Workflows Count */}
-                  <div className="flex items-center justify-between text-xs text-[#777777] bg-white p-2.5 rounded-lg border border-[#E8E8EA]">
-                    <div className="flex items-center gap-4">
-                      <span>• Database: <strong className="text-[#171717]">{blueprint.database_tables?.length || 0} Dynamic Tables</strong></span>
-                      <span>• Workflows: <strong className="text-[#171717]">{blueprint.workflows?.length || 0} Automations</strong></span>
-                    </div>
-                    <span className="text-[11px] font-mono text-emerald-600 font-semibold">Ready to Instantiate</span>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex justify-end gap-2 pt-2 border-t border-pink-200">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setBlueprint(null)}
-                    >
-                      Modify Prompt
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={handleInstantiateBlueprint}
-                      disabled={isBuildingFromBlueprint}
-                      className="text-xs gap-1.5 shadow-sm"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>{isBuildingFromBlueprint ? "Provisioning Application..." : "Launch Application from Blueprint"}</span>
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB 2: START WITH A TEMPLATE (12 RICH INDUSTRY TEMPLATES) */}
-          {creationTab === "template" && (
-            <div className="space-y-4">
-              {/* Category Filter Pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setTemplateCategoryFilter(cat)}
-                    className={`px-3 py-1 rounded-full whitespace-nowrap text-[11px] font-medium transition-colors ${
-                      templateCategoryFilter === cat
-                        ? "bg-[#171717] text-white"
-                        : "bg-[#F7F7F8] text-[#777777] hover:text-[#171717] border border-[#E8E8EA]"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              {/* Templates Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                {filteredTemplates.map((t) => {
-                  const isSelected = selectedTemplateId === t.id;
-                  return (
-                    <div
-                      key={t.id}
-                      onClick={() => setSelectedTemplateId(t.id)}
-                      className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all ${
-                        isSelected
-                          ? "border-[#D4146E] bg-[#D4146E]/5 ring-1 ring-[#D4146E]"
-                          : "border-[#E8E8EA] bg-white hover:bg-[#F7F7F8]"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.color || "#D4146E" }} />
-                          <h4 className="font-bold text-xs text-[#171717]">{t.name}</h4>
-                        </div>
-                        {t.badge && (
-                          <Badge variant="secondary" className="text-[10px]">{t.badge}</Badge>
-                        )}
-                      </div>
-
-                      <p className="text-[11px] text-[#777777] leading-relaxed mb-3">
-                        {t.description}
-                      </p>
-
-                      <div className="flex items-center justify-between text-[10px] text-[#777777] font-mono border-t border-[#E8E8EA] pt-2">
-                        <span>{t.pages_count} Pages</span>
-                        <span>{t.tables_count} Tables</span>
-                        <span>{t.workflows_count} Automations</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#E8E8EA]">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsCreateOpen(false)}
-                >
-                  Cancel
-                </Button>
+              ) : (
                 <Button
                   variant="primary"
                   size="sm"
-                  onClick={() => handleInstantiateTemplate(selectedTemplateId)}
-                  disabled={isInstantiatingTemplate || !selectedTemplateId}
-                  className="text-xs gap-1.5"
+                  onClick={handleGenerateBlueprint}
+                  disabled={isGeneratingBlueprint || !ideaPrompt.trim()}
+                  className="w-full bg-blue-600 text-white rounded-xl text-xs gap-1.5"
                 >
-                  <Rocket className="w-3.5 h-3.5" />
-                  <span>{isInstantiatingTemplate ? "Launching Template..." : "Launch from Selected Template"}</span>
+                  <Wand2 className="w-3.5 h-3.5" />
+                  <span>{isGeneratingBlueprint ? "Analyzing & Planning..." : "Generate Product Blueprint"}</span>
                 </Button>
-              </div>
+              )}
             </div>
           )}
 
-          {/* TAB 3: START FROM SCRATCH */}
+          {/* TAB 2: 12 INDUSTRY TEMPLATES */}
+          {creationTab === "template" && (
+            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-2">
+                {templates.map((tpl) => (
+                  <div
+                    key={tpl.id}
+                    onClick={() => setSelectedTemplateId(tpl.id)}
+                    className={`p-3 rounded-xl border cursor-pointer text-left transition-all ${
+                      selectedTemplateId === tpl.id
+                        ? "border-blue-600 bg-blue-50/50 shadow-xs"
+                        : "border-[#E2E8F0] hover:border-gray-400"
+                    }`}
+                  >
+                    <h5 className="font-bold text-xs text-gray-900">{tpl.name}</h5>
+                    <p className="text-[10px] text-gray-500 line-clamp-2 mt-0.5">{tpl.description}</p>
+                  </div>
+                ))}
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleInstantiateTemplate}
+                disabled={isInstantiatingTemplate}
+                className="w-full bg-blue-600 text-white rounded-xl text-xs gap-1"
+              >
+                <Rocket className="w-3.5 h-3.5" />
+                <span>Instantiate Selected Template</span>
+              </Button>
+            </div>
+          )}
+
+          {/* TAB 3: BLANK PROJECT */}
           {creationTab === "scratch" && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-[#171717] mb-1">
-                  Application Name
-                </label>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-900">Application Name</label>
                 <Input
                   value={newAppName}
                   onChange={(e) => setNewAppName(e.target.value)}
-                  placeholder="e.g. Kyoto Tea Bar"
-                  className="text-xs"
+                  placeholder="e.g. My Custom App"
+                  className="text-xs rounded-xl"
                 />
               </div>
-
-              <div>
-                <label className="block text-xs font-medium text-[#171717] mb-1">
-                  Description (Optional)
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-900">Description (Optional)</label>
                 <Input
                   value={newAppDesc}
                   onChange={(e) => setNewAppDesc(e.target.value)}
-                  placeholder="e.g. Artisanal green tea drinks and confectionery..."
-                  className="text-xs"
+                  placeholder="Brief summary..."
+                  className="text-xs rounded-xl"
                 />
               </div>
-
-              <div className="p-3 bg-[#F7F7F8] rounded-lg border border-[#E8E8EA] text-xs text-[#777777] space-y-1">
-                <div className="font-semibold text-[#171717]">Blank Project Specifications:</div>
-                <div>• Initialized with standard mobile & desktop viewport canvas</div>
-                <div>• Default neutral SaaS color token system with #D4146E brand accent</div>
-                <div>• Empty component hierarchy ready for drag-and-drop design</div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#E8E8EA]">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsCreateOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleCreateScratch}
-                  disabled={isCreatingScratch || !newAppName.trim()}
-                  className="text-xs"
-                >
-                  {isCreatingScratch ? "Creating..." : "Create Blank Project"}
-                </Button>
-              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleCreateScratch}
+                disabled={isCreatingScratch || !newAppName.trim()}
+                className="w-full bg-blue-600 text-white rounded-xl text-xs gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create Blank Application</span>
+              </Button>
             </div>
           )}
         </div>
@@ -748,4 +629,3 @@ export default function WorkspaceDashboard() {
     </div>
   );
 }
-

@@ -4,13 +4,15 @@
 
 @layer base {
   :root {
-    --brand-pink: #D4146E;
-    --brand-dark: #171717;
-    --brand-bg: #FFFFFF;
-    --brand-surface: #F7F7F8;
-    --brand-border: #E8E8EA;
-    --brand-muted: #777777;
-    --brand-text: #171717;
+    --brand-blue: #2563EB;
+    --brand-blue-hover: #1D4ED8;
+    --brand-dark: #0F172A;
+    --brand-bg: #F8FAFC;
+    --brand-surface: #FFFFFF;
+    --brand-border: #E2E8F0;
+    --brand-muted: #64748B;
+    --brand-text: #0F172A;
+    --brand-pink: #2563EB; /* updated primary brand color */
   }
 
   body {
@@ -31,11 +33,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #E8E8EA;
+  background: #E2E8F0;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #D4D4D8;
+  background: #CBD5E1;
 }
 
 /* MiniForge Visual Motion Studio Engine Keyframes */

@@ -27,7 +27,7 @@ export function StudioNav({ appId, appName, appSlug }: StudioNavProps) {
   const pathname = usePathname();
 
   const navItems = [
-    { label: "Visual Builder", href: `/studio/${appId}`, icon: Layers },
+    { label: "Visual Canvas", href: `/studio/${appId}`, icon: Layers },
     { label: "Database Studio", href: `/studio/${appId}/database`, icon: Database },
     { label: "Telegram Bot", href: `/studio/${appId}/bot`, icon: Bot },
     { label: "POS & Checkout", href: `/studio/${appId}/pos`, icon: ShoppingBag },
@@ -39,32 +39,32 @@ export function StudioNav({ appId, appName, appSlug }: StudioNavProps) {
   ];
 
   return (
-    <aside className="w-64 border-r border-[#E8E8EA] bg-[#F7F7F8] flex flex-col justify-between shrink-0 select-none">
+    <aside className="w-60 border-r border-[#E2E8F0] bg-white flex flex-col justify-between shrink-0 select-none">
       <div>
-        {/* Brand & App Selector Header */}
-        <div className="p-4 border-b border-[#E8E8EA] bg-white">
+        {/* Brand & App Header */}
+        <div className="p-4 border-b border-[#E2E8F0]">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#777777] hover:text-[#171717] mb-2.5 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-blue-600 mb-3 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Workspace</span>
           </Link>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-[#171717] text-white flex items-center justify-center font-bold text-xs tracking-wider">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs tracking-wider shadow-xs">
               {appName.slice(0, 2).toUpperCase()}
             </div>
             <div className="truncate">
-              <h2 className="text-sm font-semibold text-[#171717] truncate leading-tight">{appName}</h2>
-              <span className="text-[11px] text-[#777777] font-mono">/{appSlug}</span>
+              <h2 className="text-sm font-bold text-gray-900 truncate leading-tight">{appName}</h2>
+              <span className="text-[10px] text-gray-400 font-mono">/{appSlug}</span>
             </div>
           </div>
         </div>
 
         {/* Navigation Section */}
         <div className="p-3 space-y-1">
-          <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#777777]">
-            Studio Modules
+          <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+            Modules
           </div>
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -74,22 +74,22 @@ export function StudioNav({ appId, appName, appSlug }: StudioNavProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors",
+                  "flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all",
                   isActive
-                    ? "bg-white text-[#D4146E] shadow-sm font-semibold border border-[#E8E8EA]"
-                    : "text-[#171717] hover:bg-white/80 hover:text-[#171717]"
+                    ? "bg-blue-50 text-blue-700 font-bold border border-blue-200 shadow-2xs"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 )}
               >
                 <Icon
                   className={cn(
                     "w-4 h-4 shrink-0 transition-colors",
-                    isActive ? "text-[#D4146E]" : item.highlight ? "text-[#D4146E]" : "text-[#777777]"
+                    isActive ? "text-blue-600" : "text-gray-400"
                   )}
                 />
                 <span className="truncate">{item.label}</span>
                 {item.highlight && !isActive && (
-                  <span className="ml-auto text-[10px] font-semibold bg-[#D4146E]/10 text-[#D4146E] px-1.5 py-0.5 rounded">
-                    NEW
+                  <span className="ml-auto text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.2 rounded-full">
+                    AI
                   </span>
                 )}
               </Link>
@@ -98,37 +98,13 @@ export function StudioNav({ appId, appName, appSlug }: StudioNavProps) {
         </div>
       </div>
 
-      {/* Runtime Quick Links */}
-      <div className="p-3 border-t border-[#E8E8EA] bg-white">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-[#777777] mb-2 px-1">
-          Runtime Targets
-        </div>
-        <div className="space-y-1">
-          <Link
-            href={`/r/${appSlug}`}
-            target="_blank"
-            className="flex items-center justify-between px-2.5 py-1.5 rounded text-xs text-[#171717] hover:bg-[#F7F7F8] border border-transparent hover:border-[#E8E8EA] transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Standalone Web
-            </span>
-            <ExternalLink className="w-3.5 h-3.5 text-[#777777]" />
-          </Link>
-          <Link
-            href={`/tg/${appSlug}`}
-            target="_blank"
-            className="flex items-center justify-between px-2.5 py-1.5 rounded text-xs text-[#171717] hover:bg-[#F7F7F8] border border-transparent hover:border-[#E8E8EA] transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-              Telegram Mini App
-            </span>
-            <ExternalLink className="w-3.5 h-3.5 text-[#777777]" />
-          </Link>
+      {/* Footer Info */}
+      <div className="p-4 border-t border-[#E2E8F0] bg-[#F8FAFC]">
+        <div className="flex items-center justify-between text-[11px] text-gray-500">
+          <span>Engine</span>
+          <span className="font-mono text-emerald-600 font-bold">Online</span>
         </div>
       </div>
     </aside>
   );
 }
-

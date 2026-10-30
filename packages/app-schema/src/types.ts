@@ -223,13 +223,13 @@ export interface AppSpec {
 }
 
 export const DEFAULT_THEME: ThemeConfig = {
-  primaryColor: '#D4146E',
-  primaryDark: '#171717',
+  primaryColor: '#2563EB', // Vibrant Blue matching Appy/Canvas GUI
+  primaryDark: '#0F172A',
   backgroundColor: '#FFFFFF',
-  surfaceColor: '#F7F7F8',
-  borderColor: '#E8E8EA',
-  mutedTextColor: '#777777',
-  mainTextColor: '#171717',
+  surfaceColor: '#F8FAFC',
+  borderColor: '#E2E8F0',
+  mutedTextColor: '#64748B',
+  mainTextColor: '#0F172A',
   fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  borderRadius: '8px',
+  borderRadius: '12px',
 };

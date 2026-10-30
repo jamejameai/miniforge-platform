@@ -1,145 +1,249 @@
 "use client";
 
 import { useState } from "react";
-import { getAllComponents, ComponentMetadata } from "@miniforge/component-registry";
-import { ComponentCategory } from "@miniforge/app-schema";
 import {
-  Sparkles,
-  Heading,
+  Type,
+  Square,
+  Minus,
+  Smile,
+  Image as ImageIcon,
+  Video,
+  MousePointerClick,
+  SlidersHorizontal,
+  ToggleLeft,
+  Navigation,
   ShoppingBag,
   ShoppingCart,
-  MousePointerClick,
-  Square,
-  Activity,
-  Table,
-  TextCursor,
-  Minus,
-  Tag,
-  Image as ImageIcon,
-  AlertCircle,
+  Table as TableIcon,
   Search,
-  Plus
+  PlusCircle,
+  Sparkles,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 
 interface ComponentPaletteProps {
   onAddComponent: (type: string) => void;
+  onAddPageModal?: () => void;
 }
 
-const ICON_MAP: Record<string, any> = {
-  Sparkles,
-  Heading,
-  ShoppingBag,
-  ShoppingCart,
-  MousePointerClick,
-  Square,
-  Activity,
-  Table,
-  TextCursor,
-  Minus,
-  Tag,
-  Image: ImageIcon,
-  AlertCircle
-};
-
-const CATEGORIES: { id: "all" | ComponentCategory; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "layout", label: "Layout" },
-  { id: "commerce", label: "Commerce" },
-  { id: "typography", label: "Typography" },
-  { id: "inputs", label: "Forms" },
-  { id: "data", label: "Data" },
-  { id: "feedback", label: "Feedback" }
-];
-
-export function ComponentPalette({ onAddComponent }: ComponentPaletteProps) {
-  const [activeCategory, setActiveCategory] = useState<"all" | ComponentCategory>("all");
+export function ComponentPalette({ onAddComponent, onAddPageModal }: ComponentPaletteProps) {
   const [searchQuery, setSearchQuery] = useState("");
-
-  const allComponents = getAllComponents();
-
-  const filteredComponents = allComponents.filter((comp) => {
-    const matchesCategory =
-      activeCategory === "all" || comp.category === activeCategory;
-    const matchesSearch =
-      comp.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      comp.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      comp.type.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+  const [openSections, setOpenSections] = useState({
+    basic: true,
+    action: true,
+    nav: true,
+    commerce: true,
   });
+
+  const toggleSection = (key: keyof typeof openSections) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const basicComponents = [
+    { type: "SectionHeading", label: "テキスト", sub: "Text", icon: Type },
+    { type: "Card", label: "シェイプ", sub: "Shape", icon: Square },
+    { type: "Divider", label: "線", sub: "Line", icon: Minus },
+    { type: "Badge", label: "アイコン", sub: "Icon", icon: Smile },
+    { type: "Image", label: "画像", sub: "Image", icon: ImageIcon },
+    { type: "Notice", label: "通知", sub: "Notice", icon: Sparkles },
+  ];
+
+  const actionComponents = [
+    { type: "Button", label: "ボタン1", sub: "Button", icon: MousePointerClick },
+    { type: "HeroBanner", label: "ヒーロー", sub: "Banner", icon: Sparkles },
+    { type: "Input", label: "入力", sub: "Input", icon: SlidersHorizontal },
+    { type: "Button", label: "トグル", sub: "Toggle", icon: ToggleLeft },
+  ];
+
+  const navComponents = [
+    { type: "HeroBanner", label: "トップ", sub: "Top Bar", icon: Navigation },
+    { type: "Card", label: "ボトム", sub: "Bottom", icon: Square },
+  ];
+
+  const commerceComponents = [
+    { type: "ProductGrid", label: "商品グリッド", sub: "Products", icon: ShoppingBag },
+    { type: "CartView", label: "カート", sub: "Cart", icon: ShoppingCart },
+    { type: "Table", label: "テーブル", sub: "Table", icon: TableIcon },
+    { type: "StatCard", label: "統計カード", sub: "Stats", icon: Square },
+  ];
 
   return (
     <div className="flex flex-col h-full bg-white select-none">
-      {/* Search Input */}
-      <div className="p-3 border-b border-[#E8E8EA]">
+      {/* Search Input (Matching Image 1: 検索 Q) */}
+      <div className="p-3 border-b border-[#E2E8F0]">
         <div className="relative">
-          <Search className="w-3.5 h-3.5 text-[#777777] absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search components..."
+            placeholder="検索"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#F7F7F8] border border-[#E8E8EA] rounded-md text-[#171717] placeholder:text-[#777777] focus:outline-none focus:border-[#D4146E] focus:bg-white transition-all"
+            className="w-full pl-3 pr-8 py-1.5 text-xs bg-[#F1F5F9] border border-transparent rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white focus:border-blue-500 transition-all"
           />
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
         </div>
-      </div>
 
-      {/* Category Pills */}
-      <div className="px-2 py-2 border-b border-[#E8E8EA] flex items-center gap-1 overflow-x-auto no-scrollbar">
-        {CATEGORIES.map((cat) => (
+        {/* Blue Pill Button: + ページを追加する */}
+        {onAddPageModal && (
           <button
-            key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
-            className={`px-2.5 py-1 rounded-full text-[11px] whitespace-nowrap font-medium transition-all ${
-              activeCategory === cat.id
-                ? "bg-[#D4146E] text-white shadow-xs"
-                : "bg-[#F7F7F8] text-[#777777] hover:text-[#171717] hover:bg-[#E8E8EA]"
-            }`}
+            onClick={onAddPageModal}
+            className="w-full mt-2.5 py-1.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
           >
-            {cat.label}
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>ページを追加する</span>
           </button>
-        ))}
-      </div>
-
-      {/* Component Cards Grid */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-        {filteredComponents.length === 0 ? (
-          <div className="text-center py-10 px-4 text-xs text-[#777777]">
-            No components match your search.
-          </div>
-        ) : (
-          filteredComponents.map((comp) => {
-            const Icon = ICON_MAP[comp.icon] || Square;
-            return (
-              <div
-                key={comp.type}
-                onClick={() => onAddComponent(comp.type)}
-                className="group p-2.5 rounded-lg border border-[#E8E8EA] hover:border-[#D4146E] bg-white hover:bg-[#D4146E]/5 cursor-pointer transition-all flex items-start gap-2.5"
-              >
-                <div className="w-7 h-7 rounded-md bg-[#F7F7F8] group-hover:bg-[#D4146E]/10 flex items-center justify-center shrink-0 text-[#171717] group-hover:text-[#D4146E] transition-colors border border-[#E8E8EA]">
-                  <Icon className="w-3.5 h-3.5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold text-[#171717] group-hover:text-[#D4146E] transition-colors truncate">
-                      {comp.label}
-                    </h4>
-                    <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[#D4146E]">
-                      <Plus className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#777777] line-clamp-2 mt-0.5 leading-snug">
-                    {comp.description}
-                  </p>
-                </div>
-              </div>
-            );
-          })
         )}
       </div>
 
-      {/* Bottom Quick Insertion Hint */}
-      <div className="p-2.5 border-t border-[#E8E8EA] bg-[#F7F7F8] text-[10px] text-[#777777] text-center">
-        Click any component to append to active page
+      {/* Accordion Component Categories with 3-Column / 2-Column Grid */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        {/* SECTION 1: ベーシック (Basic) */}
+        <div>
+          <button
+            onClick={() => toggleSection("basic")}
+            className="w-full flex items-center justify-between text-xs font-bold text-gray-800 pb-2"
+          >
+            <span>ベーシック</span>
+            {openSections.basic ? (
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+            )}
+          </button>
+
+          {openSections.basic && (
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {basicComponents.map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={`${item.type}-${idx}`}
+                    onClick={() => onAddComponent(item.type)}
+                    className="p-2 bg-[#F8FAFC] hover:bg-blue-50/70 border border-[#E2E8F0] hover:border-blue-300 rounded-xl flex flex-col items-center justify-center text-center transition-all group"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-600 group-hover:text-blue-600 group-hover:border-blue-300 transition-colors">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-[11px] font-medium text-gray-800 mt-1.5 leading-none">
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* SECTION 2: アクション (Action) */}
+        <div className="pt-2 border-t border-gray-100">
+          <button
+            onClick={() => toggleSection("action")}
+            className="w-full flex items-center justify-between text-xs font-bold text-gray-800 pb-2"
+          >
+            <span>アクション</span>
+            {openSections.action ? (
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+            )}
+          </button>
+
+          {openSections.action && (
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {actionComponents.map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={`${item.type}-${idx}`}
+                    onClick={() => onAddComponent(item.type)}
+                    className="p-2 bg-[#F8FAFC] hover:bg-blue-50/70 border border-[#E2E8F0] hover:border-blue-300 rounded-xl flex flex-col items-center justify-center text-center transition-all group"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-600 group-hover:text-blue-600 group-hover:border-blue-300 transition-colors">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-[11px] font-medium text-gray-800 mt-1.5 leading-none">
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* SECTION 3: ナビゲーション (Navigation) */}
+        <div className="pt-2 border-t border-gray-100">
+          <button
+            onClick={() => toggleSection("nav")}
+            className="w-full flex items-center justify-between text-xs font-bold text-gray-800 pb-2"
+          >
+            <span>ナビゲーション</span>
+            {openSections.nav ? (
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+            )}
+          </button>
+
+          {openSections.nav && (
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {navComponents.map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={`${item.type}-${idx}`}
+                    onClick={() => onAddComponent(item.type)}
+                    className="p-2 bg-[#F8FAFC] hover:bg-blue-50/70 border border-[#E2E8F0] hover:border-blue-300 rounded-xl flex flex-col items-center justify-center text-center transition-all group"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-600 group-hover:text-blue-600 group-hover:border-blue-300 transition-colors">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-[11px] font-medium text-gray-800 mt-1.5 leading-none">
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* SECTION 4: コマース & データ (Commerce & Data) */}
+        <div className="pt-2 border-t border-gray-100">
+          <button
+            onClick={() => toggleSection("commerce")}
+            className="w-full flex items-center justify-between text-xs font-bold text-gray-800 pb-2"
+          >
+            <span>データ & コマース</span>
+            {openSections.commerce ? (
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+            )}
+          </button>
+
+          {openSections.commerce && (
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {commerceComponents.map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={`${item.type}-${idx}`}
+                    onClick={() => onAddComponent(item.type)}
+                    className="p-2 bg-[#F8FAFC] hover:bg-blue-50/70 border border-[#E2E8F0] hover:border-blue-300 rounded-xl flex flex-col items-center justify-center text-center transition-all group"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-600 group-hover:text-blue-600 group-hover:border-blue-300 transition-colors">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-[11px] font-medium text-gray-800 mt-1.5 leading-none">
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

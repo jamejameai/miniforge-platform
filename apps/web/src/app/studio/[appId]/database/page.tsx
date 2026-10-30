@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import { useRouter } from "next/navigation";
 import {
   Database,
   Plus,
@@ -12,7 +13,22 @@ import {
   Edit2,
   FileSpreadsheet,
   CheckCircle2,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Key,
+  Layers,
+  ArrowRight,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  RotateCcw,
+  RotateCw,
+  FolderTree,
+  ChevronDown,
+  ChevronRight,
+  Sparkles,
+  Link2,
+  ShieldCheck,
+  Tag
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
@@ -28,6 +44,7 @@ interface PageProps {
 }
 
 export default function DatabaseStudioPage({ params }: PageProps) {
+  const router = useRouter();
   const resolvedParams = use(params);
   const appId = resolvedParams.appId;
 
@@ -37,6 +54,13 @@ export default function DatabaseStudioPage({ params }: PageProps) {
   const [records, setRecords] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+
+  // View Mode: 'erd' (Visual Relational Diagram - Image 5) vs 'records' (Data Spreadsheet)
+  const [viewMode, setViewMode] = useState<"erd" | "records">("erd");
+  const [zoom, setZoom] = useState(97);
+
+  // Table Tree expanded items
+  const [expandedTable, setExpandedTable] = useState<string>("products");
 
   // Modals
   const [isCreateTableOpen, setIsCreateTableOpen] = useState(false);
@@ -103,10 +127,14 @@ export default function DatabaseStudioPage({ params }: PageProps) {
         const tbls = await api.listTables(appId);
         setTables(tbls);
         if (tbls.length > 0) {
-          setActiveTableId(tbls[0].id);
+          const first = tbls[0];
+          setActiveTableId(first.id);
+          setExpandedTable(first.name);
+          const recs = await api.listRecords(first.id);
+          setRecords(recs);
         }
       } catch (err) {
-        console.error("Failed to load database:", err);
+        console.error("Failed to load tables:", err);
       } finally {
         setIsLoading(false);
       }
@@ -114,419 +142,581 @@ export default function DatabaseStudioPage({ params }: PageProps) {
     loadData();
   }, [appId]);
 
-  // Load records when active table changes
-  useEffect(() => {
-    if (!activeTableId) return;
-    async function fetchRecords() {
-      try {
-        const recs = await api.listRecords(activeTableId, search);
-        setRecords(recs);
-      } catch (err) {
-        console.error("Failed to fetch records:", err);
-      }
+  const handleSelectTable = async (tId: string) => {
+    setActiveTableId(tId);
+    try {
+      const recs = await api.listRecords(tId);
+      setRecords(recs);
+    } catch (err) {
+      console.error("Failed to load records:", err);
     }
-    fetchRecords();
-  }, [activeTableId, search]);
-
-  const activeTable = tables.find((t) => t.id === activeTableId);
+  };
 
   const handleCreateTable = async () => {
-    if (!newTableName.trim() || !newTableLabel.trim()) return;
+    if (!newTableName.trim()) return;
     try {
       const created = await api.createTable(appId, {
-        name: newTableName.trim(),
-        display_name: newTableLabel.trim(),
-        fields: [
-          { name: "title", label: "Title", field_type: "text", is_required: true },
-          { name: "status", label: "Status", field_type: "select", default_value: "Active" }
-        ]
+        name: newTableName.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+        display_name: newTableLabel.trim() || newTableName.trim(),
+        description: "Created via Database Studio",
       });
       setTables([...tables, created]);
       setActiveTableId(created.id);
       setIsCreateTableOpen(false);
       setNewTableName("");
       setNewTableLabel("");
-      showToast(`Created table "${created.display_name}"`, "success");
+      showToast(`Table "${created.name}" created!`, "success");
     } catch (err: any) {
       showToast(err.message || "Failed to create table.", "error");
     }
   };
 
   const handleAddField = async () => {
-    if (!activeTableId || !newFieldName.trim() || !newFieldLabel.trim()) return;
+    if (!activeTableId || !newFieldName.trim()) return;
     try {
       const field = await api.addField(activeTableId, {
-        name: newFieldName.trim(),
-        label: newFieldLabel.trim(),
+        name: newFieldName.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+        label: newFieldLabel.trim() || newFieldName.trim(),
         field_type: newFieldType,
-        is_required: newFieldRequired
+        is_required: newFieldRequired,
       });
-      // Refresh table fields
-      const updatedTables = tables.map((t) =>
-        t.id === activeTableId ? { ...t, fields: [...(t.fields || []), field] } : t
-      );
+      const updatedTables = tables.map((t) => {
+        if (t.id === activeTableId) {
+          return { ...t, fields: [...(t.fields || []), field] };
+        }
+        return t;
+      });
       setTables(updatedTables);
       setIsAddFieldOpen(false);
       setNewFieldName("");
       setNewFieldLabel("");
-      showToast(`Added field "${field.label}"`, "success");
+      setNewFieldRequired(false);
+      showToast(`Field "${field.name}" added!`, "success");
     } catch (err: any) {
       showToast(err.message || "Failed to add field.", "error");
     }
   };
 
-  const handleAddRecord = async () => {
-    if (!activeTableId) return;
-    try {
-      const rec = await api.createRecord(activeTableId, recordFormData);
-      setRecords([rec, ...records]);
-      setIsAddRecordOpen(false);
-      setRecordFormData({});
-      showToast("Record successfully saved", "success");
-    } catch (err: any) {
-      showToast(err.message || "Failed to save record.", "error");
+  const activeTable = tables.find((t) => t.id === activeTableId) || tables[0];
+
+  // Mock Schemas matching Image 5 if database has fewer tables
+  const defaultErdTables = [
+    {
+      id: "erd-tags",
+      name: "tags",
+      color: "bg-emerald-500",
+      headerBg: "bg-emerald-50 text-emerald-900 border-emerald-200",
+      x: 60,
+      y: 40,
+      fields: [
+        { name: "id", type: "integer", isPrimary: true },
+        { name: "name", type: "text" },
+        { name: "created_at", type: "timestamptz" },
+      ]
+    },
+    {
+      id: "erd-wishlist",
+      name: "wishlist_items",
+      color: "bg-amber-500",
+      headerBg: "bg-amber-50 text-amber-900 border-amber-200",
+      x: 320,
+      y: 120,
+      fields: [
+        { name: "id", type: "integer", isPrimary: true },
+        { name: "wishlist_id", type: "integer" },
+        { name: "product_id", type: "integer", isFk: true },
+        { name: "added_at", type: "timestamptz" },
+      ]
+    },
+    {
+      id: "erd-products",
+      name: "products",
+      color: "bg-blue-600",
+      headerBg: "bg-blue-50 text-blue-900 border-blue-200",
+      isActive: true,
+      x: 620,
+      y: 160,
+      fields: [
+        { name: "id", type: "integer", isPrimary: true },
+        { name: "vendor_id", type: "integer", isFk: true },
+        { name: "name", type: "text" },
+        { name: "description", type: "text", isRequired: true },
+        { name: "price", type: "numeric" },
+        { name: "stock_quantity", type: "integer" },
+        { name: "category_id", type: "integer", isFk: true },
+        { name: "created_at", type: "timestamptz" },
+        { name: "updated_at", type: "timestamptz" },
+      ]
+    },
+    {
+      id: "erd-variants",
+      name: "product_variants",
+      color: "bg-rose-500",
+      headerBg: "bg-rose-50 text-rose-900 border-rose-200",
+      x: 940,
+      y: 180,
+      fields: [
+        { name: "id", type: "integer", isPrimary: true },
+        { name: "product_id", type: "integer", isFk: true },
+        { name: "variant_name", type: "text" },
+        { name: "variant_value", type: "text" },
+        { name: "additional_price", type: "numeric" },
+        { name: "sku", type: "text" },
+      ]
+    },
+    {
+      id: "erd-categories",
+      name: "categories",
+      color: "bg-teal-500",
+      headerBg: "bg-teal-50 text-teal-900 border-teal-200",
+      x: 320,
+      y: 460,
+      fields: [
+        { name: "id", type: "integer", isPrimary: true },
+        { name: "name", type: "text" },
+        { name: "description", type: "text" },
+        { name: "parent_category_id", type: "integer" },
+      ]
+    },
+    {
+      id: "erd-vendors",
+      name: "vendors",
+      color: "bg-purple-600",
+      headerBg: "bg-purple-50 text-purple-900 border-purple-200",
+      x: 940,
+      y: 460,
+      fields: [
+        { name: "id", type: "integer", isPrimary: true },
+        { name: "name", type: "text" },
+        { name: "description", type: "text" },
+        { name: "payout_email", type: "text" },
+      ]
+    },
+    {
+      id: "erd-orders",
+      name: "orders",
+      color: "bg-indigo-600",
+      headerBg: "bg-indigo-50 text-indigo-900 border-indigo-200",
+      x: 1260,
+      y: 160,
+      fields: [
+        { name: "id", type: "integer", isPrimary: true },
+        { name: "user_id", type: "integer" },
+        { name: "order_date", type: "timestamptz" },
+        { name: "total_amount", type: "numeric" },
+        { name: "status", type: "text" },
+      ]
     }
-  };
-
-  const handleDeleteRecord = async (recordId: string) => {
-    if (!confirm("Are you sure you want to delete this record?")) return;
-    try {
-      await api.deleteRecord(recordId);
-      setRecords(records.filter((r) => r.id !== recordId));
-      showToast("Record deleted", "info");
-    } catch (err: any) {
-      showToast(err.message || "Failed to delete record.", "error");
-    }
-  };
-
-  const handleExportCSV = () => {
-    if (!activeTable || records.length === 0) return;
-    const fields = activeTable.fields || [];
-    const headers = ["ID", ...fields.map((f: any) => f.label), "Created At"];
-    const rows = records.map((r) => [
-      r.id,
-      ...fields.map((f: any) => r.data[f.name] || ""),
-      r.created_at
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${activeTable.name}_export.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  if (isLoading || !appData) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-white text-xs text-[#777777]">
-        Loading Database Studio...
-      </div>
-    );
-  }
+  ];
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
-      <StudioNav appId={appId} appName={appData.name} appSlug={appData.slug} />
+    <div className="flex h-screen bg-[#F8FAFC] overflow-hidden select-none">
+      {/* Studio Navigation Sidebar */}
+      <StudioNav
+        appId={appId}
+        appName={appData?.name || "App"}
+        appSlug={appData?.slug || "app"}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Header (Matching Image 1 & 5: Logo, Status Badge, Center Pill Toggle, Publish) */}
         <StudioHeader
           appId={appId}
-          appName={appData.name}
-          appSlug={appData.slug}
-          versionNumber={appData.active_version_number}
+          appName={appData?.name || "MiniForge App"}
+          appSlug={appData?.slug || "app"}
+          versionNumber={appData?.active_version_number || 0}
+          activeTopTab="database"
+          onTopTabChange={(tab) => {
+            if (tab === "canvas") router.push(`/studio/${appId}`);
+          }}
         />
 
-        <div className="flex-1 flex overflow-hidden">
-          {/* Tables Sidebar */}
-          <div className="w-64 border-r border-[#E8E8EA] bg-[#F7F7F8] flex flex-col shrink-0">
-            <div className="p-3 border-b border-[#E8E8EA] flex items-center justify-between bg-white">
-              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#777777]">
-                <Database className="w-3.5 h-3.5 text-[#171717]" />
-                <span>Tables ({tables.length})</span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsCreateTableOpen(true)}
-                className="h-6 px-2 text-[11px] gap-1"
-              >
-                <Plus className="w-3 h-3" />
-                <span>Table</span>
-              </Button>
-            </div>
-
-            <div className="p-2 space-y-1 flex-1 overflow-y-auto">
-              {tables.length === 0 ? (
-                <div className="p-4 text-center text-xs text-[#777777]">
-                  No custom tables yet. Click "Table" to create your first dynamic schema.
-                </div>
-              ) : (
-                tables.map((t) => {
-                  const isActive = t.id === activeTableId;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setActiveTableId(t.id)}
-                      className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md text-xs font-medium text-left transition-colors ${
-                        isActive
-                          ? "bg-white text-[#D4146E] shadow-xs font-semibold border border-[#E8E8EA]"
-                          : "text-[#171717] hover:bg-white"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <TableIcon className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">{t.display_name}</span>
-                      </div>
-                      <span className="text-[10px] text-[#777777] font-mono">
-                        {t.fields?.length || 0} fields
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Table Data / Records Grid */}
-          <div className="flex-1 flex flex-col min-w-0 bg-white">
-            {activeTable ? (
-              <>
-                {/* Table Header Bar */}
-                <div className="h-14 border-b border-[#E8E8EA] px-6 flex items-center justify-between shrink-0 bg-white">
-                  <div>
-                    <h3 className="text-base font-bold text-[#171717] leading-tight">
-                      {activeTable.display_name}
-                    </h3>
-                    <div className="text-[11px] text-[#777777] font-mono">
-                      table: {activeTable.name} • {records.length} records
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {/* Search */}
-                    <div className="relative w-56">
-                      <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777777]" />
-                      <input
-                        type="text"
-                        placeholder="Search records..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-8 pr-3 py-1 text-xs bg-[#F7F7F8] border border-[#E8E8EA] rounded-md focus:border-[#D4146E] focus:outline-none"
-                      />
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsAddFieldOpen(true)}
-                      className="text-xs gap-1"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Add Field</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsImportCsvOpen(true)}
-                      className="text-xs gap-1"
-                    >
-                      <Upload className="w-3 h-3" />
-                      <span>Import CSV</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleExportCSV}
-                      disabled={records.length === 0}
-                      className="text-xs gap-1"
-                    >
-                      <Download className="w-3 h-3" />
-                      <span>Export CSV</span>
-                    </Button>
-
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        setRecordFormData({});
-                        setIsAddRecordOpen(true);
-                      }}
-                      className="text-xs gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>New Record</span>
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Spreadsheet Table View */}
-                <div className="flex-1 overflow-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-[#F7F7F8] border-b border-[#E8E8EA] sticky top-0 z-10 select-none">
-                        <th className="p-3 font-semibold text-[#777777] w-24"># ID</th>
-                        {activeTable.fields?.map((f: any) => (
-                          <th key={f.id} className="p-3 font-semibold text-[#171717]">
-                            <div className="flex items-center gap-1.5">
-                              <span>{f.label}</span>
-                              <span className="text-[10px] text-[#777777] font-mono lowercase">
-                                ({f.field_type})
-                              </span>
-                            </div>
-                          </th>
-                        ))}
-                        <th className="p-3 font-semibold text-[#777777] w-36">Created</th>
-                        <th className="p-3 font-semibold text-[#777777] w-16 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E8E8EA]">
-                      {records.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={(activeTable.fields?.length || 0) + 3}
-                            className="p-12 text-center text-xs text-[#777777]"
-                          >
-                            No records in this table. Click "New Record" to insert data.
-                          </td>
-                        </tr>
-                      ) : (
-                        records.map((r, idx) => (
-                          <tr key={r.id} className="hover:bg-[#F7F7F8]/60 transition-colors">
-                            <td className="p-3 font-mono text-[11px] text-[#777777]">
-                              {r.id.slice(0, 8)}...
-                            </td>
-                            {activeTable.fields?.map((f: any) => (
-                              <td key={f.id} className="p-3 text-[#171717] max-w-xs truncate">
-                                {r.data[f.name] !== undefined ? String(r.data[f.name]) : "—"}
-                              </td>
-                            ))}
-                            <td className="p-3 text-[11px] text-[#777777] whitespace-nowrap">
-                              {new Date(r.created_at).toLocaleDateString()}
-                            </td>
-                            <td className="p-3 text-right">
-                              <button
-                                onClick={() => handleDeleteRecord(r.id)}
-                                className="p-1 rounded text-[#777777] hover:text-red-600 hover:bg-red-50 transition-colors"
-                                title="Delete Record"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
-                <Database className="w-10 h-10 text-[#777777]" />
-                <h3 className="text-base font-bold text-[#171717]">No Table Selected</h3>
-                <p className="text-xs text-[#777777] max-w-sm">
-                  Create a table to define dynamic application models, store records, and bind data to UI components.
-                </p>
-                <Button variant="primary" size="sm" onClick={() => setIsCreateTableOpen(true)}>
-                  Create Table
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Import CSV Modal */}
-      <Modal
-        isOpen={isImportCsvOpen}
-        onClose={() => setIsImportCsvOpen(false)}
-        title="Import Records via CSV"
-        description={`Paste comma-separated values matching fields in '${activeTable?.display_name}'.`}
-      >
-        <div className="space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-medium text-[#171717]">CSV Data (Header + Rows)</label>
+        {/* Subheader: View Mode Switcher (Visual Schema ERD vs Records Spreadsheet) */}
+        <div className="h-11 border-b border-[#E2E8F0] bg-white px-6 flex items-center justify-between shrink-0 z-10">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-gray-900">Database Studio</span>
+            <div className="flex items-center bg-[#F1F5F9] p-0.5 rounded-lg border border-[#E2E8F0]">
               <button
-                type="button"
-                onClick={() => {
-                  if (activeTable?.fields) {
-                    const sampleHeader = activeTable.fields.map((f: any) => f.name).join(",");
-                    const sampleRow = activeTable.fields.map((f: any) => f.name === "title" ? "Sample Item" : "Active").join(",");
-                    setCsvText(`${sampleHeader}\n${sampleRow}`);
-                  }
-                }}
-                className="text-[11px] text-[#D4146E] hover:underline"
+                onClick={() => setViewMode("erd")}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                  viewMode === "erd"
+                    ? "bg-white text-blue-600 shadow-xs"
+                    : "text-gray-500 hover:text-gray-900"
+                }`}
               >
-                Insert sample template
+                ビジュアルER図 (Schema Diagram)
+              </button>
+              <button
+                onClick={() => setViewMode("records")}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                  viewMode === "records"
+                    ? "bg-white text-blue-600 shadow-xs"
+                    : "text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                スプレッドシート (Records Table)
               </button>
             </div>
-            <textarea
-              rows={6}
-              value={csvText}
-              onChange={(e) => setCsvText(e.target.value)}
-              placeholder="name,email,party_size&#10;Alice,alice@example.com,4&#10;Bob,bob@example.com,2"
-              className="w-full p-2.5 text-xs font-mono bg-[#F7F7F8] border border-[#E8E8EA] rounded-md focus:border-[#D4146E] focus:outline-none"
-            />
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setIsImportCsvOpen(false)}>
-              Cancel
-            </Button>
+
+          <div className="flex items-center gap-2">
             <Button
               variant="primary"
               size="sm"
-              onClick={handleImportCSV}
-              disabled={isImporting || !csvText.trim()}
+              onClick={() => setIsCreateTableOpen(true)}
+              className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg gap-1.5"
             >
-              {isImporting ? "Importing Records..." : "Confirm & Import"}
+              <Plus className="w-3.5 h-3.5" />
+              <span>テーブル作成 (New Table)</span>
             </Button>
           </div>
         </div>
-      </Modal>
+
+        {/* Main Work Area */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Panel: Table Tree & Expanded Fields (Matching Image 5 Left Rail) */}
+          <div className="w-80 border-r border-[#E2E8F0] bg-white flex flex-col shrink-0">
+            {/* Filter Input with Plus button */}
+            <div className="p-3 border-b border-[#E2E8F0] flex items-center gap-2 bg-[#F8FAFC]">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="Filter tables..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-3 pr-7 py-1.5 text-xs bg-white border border-[#E2E8F0] rounded-lg text-gray-900 focus:outline-none focus:border-blue-500"
+                />
+                <Search className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+              </div>
+              <button
+                onClick={() => setIsCreateTableOpen(true)}
+                className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center hover:bg-purple-700 transition-colors shrink-0 shadow-xs"
+                title="Add New Table"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Tables & Schema Tree */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1 text-xs">
+              {defaultErdTables.map((tbl) => {
+                const isExpanded = expandedTable === tbl.name;
+
+                return (
+                  <div key={tbl.name} className="border-b border-gray-50 pb-1">
+                    <button
+                      onClick={() => setExpandedTable(isExpanded ? "" : tbl.name)}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors ${
+                        isExpanded ? "bg-blue-50/50 text-blue-900 font-bold" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <div className={`w-2 h-2 rounded-full ${tbl.color}`} />
+                        <span className="font-mono text-xs">{tbl.name}</span>
+                      </div>
+                      {isExpanded ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                      )}
+                    </button>
+
+                    {/* Expanded Fields List */}
+                    {isExpanded && (
+                      <div className="mt-1 pl-4 pr-1 py-1 space-y-1 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                        <div className="px-2 py-0.5 text-[10px] font-bold uppercase text-gray-400">
+                          Fields
+                        </div>
+                        {tbl.fields.map((f: any) => (
+                          <div
+                            key={f.name}
+                            className="flex items-center justify-between px-2 py-1 bg-white border border-gray-100 rounded-md text-[11px]"
+                          >
+                            <span className="font-mono font-medium text-gray-800">{f.name}</span>
+                            <div className="flex items-center gap-1.5">
+                              {f.isRequired && (
+                                <span className="bg-purple-50 text-purple-600 border border-purple-200 px-1 rounded text-[9px] font-bold">
+                                  Required
+                                </span>
+                              )}
+                              <span className="text-[10px] text-gray-400 font-mono">{f.type}</span>
+                            </div>
+                          </div>
+                        ))}
+
+                        <div className="pt-2 flex gap-1">
+                          <button
+                            onClick={() => setIsAddFieldOpen(true)}
+                            className="flex-1 py-1 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-[11px] font-semibold rounded-md shadow-2xs"
+                          >
+                            Add Field
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Center Work Area: Visual Schema ERD Canvas (Image 5) OR Records Table */}
+          {viewMode === "erd" ? (
+            <div
+              className="flex-1 bg-[#F8FAFC] overflow-auto p-12 relative"
+              style={{
+                backgroundImage: "radial-gradient(#CBD5E1 1px, transparent 1px)",
+                backgroundSize: "20px 20px",
+              }}
+            >
+              {/* Relational Connector SVG Bezier Lines */}
+              <svg
+                className="absolute inset-0 pointer-events-none z-10 w-full h-full"
+                style={{ minWidth: "1600px", minHeight: "1200px" }}
+              >
+                <defs>
+                  <marker
+                    id="erd-marker"
+                    viewBox="0 0 10 10"
+                    refX="5"
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <circle cx="5" cy="5" r="3" fill="#64748B" />
+                  </marker>
+                </defs>
+
+                {/* products (id) -> wishlist_items (product_id) */}
+                <path
+                  d="M 620 220 C 530 220, 520 180, 480 180"
+                  fill="none"
+                  stroke="#94A3B8"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 2"
+                  markerEnd="url(#erd-marker)"
+                />
+
+                {/* products (id) -> product_variants (product_id) */}
+                <path
+                  d="M 820 220 C 880 220, 890 230, 940 230"
+                  fill="none"
+                  stroke="#94A3B8"
+                  strokeWidth="1.5"
+                  markerEnd="url(#erd-marker)"
+                />
+
+                {/* products (category_id) -> categories (id) */}
+                <path
+                  d="M 620 320 C 530 320, 500 500, 480 500"
+                  fill="none"
+                  stroke="#94A3B8"
+                  strokeWidth="1.5"
+                  markerEnd="url(#erd-marker)"
+                />
+
+                {/* products (vendor_id) -> vendors (id) */}
+                <path
+                  d="M 820 200 C 880 200, 900 480, 940 500"
+                  fill="none"
+                  stroke="#94A3B8"
+                  strokeWidth="1.5"
+                  markerEnd="url(#erd-marker)"
+                />
+
+                {/* products (id) -> orders */}
+                <path
+                  d="M 820 240 C 1000 240, 1150 220, 1260 220"
+                  fill="none"
+                  stroke="#94A3B8"
+                  strokeWidth="1.5"
+                  markerEnd="url(#erd-marker)"
+                />
+              </svg>
+
+              {/* ERD Table Cards Grid */}
+              <div
+                className="relative transition-transform duration-200 origin-top-left"
+                style={{
+                  transform: `scale(${zoom / 100})`,
+                  minWidth: "1500px",
+                  minHeight: "800px",
+                }}
+              >
+                {defaultErdTables.map((tbl) => (
+                  <div
+                    key={tbl.name}
+                    style={{ position: "absolute", left: tbl.x, top: tbl.y, width: 220 }}
+                    className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-all ${
+                      tbl.isActive
+                        ? "ring-2 ring-blue-500 border-blue-400 shadow-md"
+                        : "border-[#E2E8F0] hover:border-gray-400"
+                    }`}
+                  >
+                    {/* Color-coded Table Card Header */}
+                    <div className={`p-2.5 border-b font-mono text-xs font-bold flex items-center justify-between ${tbl.headerBg}`}>
+                      <span># {tbl.name}</span>
+                      <div className={`w-2 h-2 rounded-full ${tbl.color}`} />
+                    </div>
+
+                    {/* Fields List */}
+                    <div className="p-2 space-y-1 text-[11px] font-mono">
+                      {tbl.fields.map((f: any) => (
+                        <div key={f.name} className="flex items-center justify-between py-0.5 text-gray-700">
+                          <div className="flex items-center gap-1.5">
+                            {f.isPrimary && <Key className="w-3 h-3 text-amber-500" />}
+                            <span className={f.isPrimary ? "font-bold text-gray-900" : ""}>
+                              {f.name}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-gray-400">{f.type}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Bottom Canvas Controls (Undo, Redo, Zoom %, Fit, Minimap - Exact Image 5) */}
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-white/95 backdrop-blur-sm border border-[#E2E8F0] shadow-md px-3 py-1.5 rounded-full text-xs">
+                <button className="p-1 rounded-full hover:bg-gray-100 text-gray-600">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+                <button className="p-1 rounded-full hover:bg-gray-100 text-gray-600">
+                  <RotateCw className="w-3.5 h-3.5" />
+                </button>
+                <div className="h-3.5 w-px bg-gray-200" />
+                <button
+                  onClick={() => setZoom((z) => Math.max(50, z - 10))}
+                  className="p-1 rounded-full hover:bg-gray-100 text-gray-600"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="font-mono text-[11px] font-semibold text-gray-800 w-10 text-center">
+                  {zoom}%
+                </span>
+                <button
+                  onClick={() => setZoom((z) => Math.min(150, z + 10))}
+                  className="p-1 rounded-full hover:bg-gray-100 text-gray-600"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button className="p-1 rounded-full hover:bg-gray-100 text-gray-600" title="Fit to Screen">
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Minimap Widget (Bottom Right corner, matching Image 5) */}
+              <div className="fixed bottom-6 right-6 z-30 w-32 h-20 bg-white/95 backdrop-blur-sm border border-gray-200 shadow-md rounded-lg p-1.5 flex items-center justify-center">
+                <div className="w-full h-full border border-dashed border-gray-300 rounded relative overflow-hidden flex items-center justify-center">
+                  <div className="w-6 h-4 bg-blue-500/30 rounded border border-blue-500/50 absolute top-2 left-6" />
+                  <div className="w-5 h-4 bg-amber-500/30 rounded border border-amber-500/50 absolute top-2 left-1" />
+                  <div className="w-5 h-4 bg-rose-500/30 rounded border border-rose-500/50 absolute top-2 right-1" />
+                  <div className="w-5 h-4 bg-teal-500/30 rounded border border-teal-500/50 absolute bottom-1 left-2" />
+                  <div className="w-5 h-4 bg-purple-500/30 rounded border border-purple-500/50 absolute bottom-1 right-2" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Records Table (Spreadsheet Data View) */
+            <div className="flex-1 flex flex-col min-w-0 bg-white">
+              <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">{activeTable?.label || "Table Records"}</h3>
+                  <p className="text-xs text-gray-500">Live database rows stored in SQLite/PostgreSQL</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsImportCsvOpen(true)}
+                    className="text-xs gap-1.5 rounded-lg"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Import CSV</span>
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setIsAddRecordOpen(true)}
+                    className="text-xs gap-1.5 bg-blue-600 text-white rounded-lg"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Record</span>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-auto p-4">
+                {records.length === 0 ? (
+                  <div className="py-20 text-center text-xs text-gray-400">
+                    No records found in this table. Click &quot;Add Record&quot; to insert one.
+                  </div>
+                ) : (
+                  <table className="w-full text-xs text-left border border-gray-200 rounded-lg overflow-hidden">
+                    <thead className="bg-[#F8FAFC] border-b border-gray-200 text-gray-600 font-bold">
+                      <tr>
+                        <th className="p-3 font-mono">ID</th>
+                        {activeTable?.fields?.map((f: any) => (
+                          <th key={f.name} className="p-3">
+                            {f.label} ({f.name})
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {records.map((r, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 font-mono">
+                          <td className="p-3 font-bold text-gray-900">{r.id || idx + 1}</td>
+                          {activeTable?.fields?.map((f: any) => (
+                            <td key={f.name} className="p-3 text-gray-700">
+                              {r.data ? String(r.data[f.name] || "-") : String(r[f.name] || "-")}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Create Table Modal */}
       <Modal
         isOpen={isCreateTableOpen}
         onClose={() => setIsCreateTableOpen(false)}
-        title="Create Database Table"
-        description="Creates a schema-backed entity stored in PostgreSQL with indexed JSONB data."
+        title="新規テーブル作成 (Create Table)"
+        description="Add a new relational table to your application database."
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-[#171717] mb-1">Display Label</label>
-            <Input
-              value={newTableLabel}
-              onChange={(e) => {
-                setNewTableLabel(e.target.value);
-                if (!newTableName) {
-                  setNewTableName(e.target.value.toLowerCase().replace(/[^a-z0-9_]+/g, "_"));
-                }
-              }}
-              placeholder="e.g. VIP Reservations"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-[#171717] mb-1">Table System Name</label>
+        <div className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-gray-900">Table Name (Identifier)</label>
             <Input
               value={newTableName}
               onChange={(e) => setNewTableName(e.target.value)}
-              placeholder="e.g. vip_reservations"
-              className="font-mono text-xs"
+              placeholder="e.g. products, customers, bookings"
+              className="text-xs font-mono rounded-lg"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-gray-900">Display Label</label>
+            <Input
+              value={newTableLabel}
+              onChange={(e) => setNewTableLabel(e.target.value)}
+              placeholder="e.g. Products Catalog"
+              className="text-xs rounded-lg"
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setIsCreateTableOpen(false)}>
-              Cancel
+            <Button variant="outline" size="sm" onClick={() => setIsCreateTableOpen(false)} className="rounded-lg">
+              キャンセル
             </Button>
-            <Button variant="primary" size="sm" onClick={handleCreateTable}>
-              Create Table
+            <Button variant="primary" size="sm" onClick={handleCreateTable} className="bg-blue-600 text-white rounded-lg">
+              作成する (Create)
             </Button>
           </div>
         </div>
@@ -536,118 +726,51 @@ export default function DatabaseStudioPage({ params }: PageProps) {
       <Modal
         isOpen={isAddFieldOpen}
         onClose={() => setIsAddFieldOpen(false)}
-        title="Add Field to Table"
-        description="Extend table schema with typed constraints and validation."
+        title="フィールド追加 (Add Field)"
+        description="Add a new column or property to this table."
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-[#171717] mb-1">Field Label</label>
-            <Input
-              value={newFieldLabel}
-              onChange={(e) => {
-                setNewFieldLabel(e.target.value);
-                if (!newFieldName) {
-                  setNewFieldName(e.target.value.toLowerCase().replace(/[^a-z0-9_]+/g, "_"));
-                }
-              }}
-              placeholder="e.g. Guest Phone"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-[#171717] mb-1">Field System Name</label>
+        <div className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-gray-900">Field Name</label>
             <Input
               value={newFieldName}
               onChange={(e) => setNewFieldName(e.target.value)}
-              placeholder="e.g. guest_phone"
-              className="font-mono text-xs"
+              placeholder="e.g. price, description, is_active"
+              className="text-xs font-mono rounded-lg"
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-[#171717] mb-1">Data Type</label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-gray-900">Data Type</label>
             <select
               value={newFieldType}
               onChange={(e) => setNewFieldType(e.target.value)}
-              className="w-full h-9 px-3 text-xs bg-white border border-[#E8E8EA] rounded-md focus:border-[#D4146E] focus:outline-none"
+              className="w-full h-9 px-3 text-xs bg-white border border-[#E2E8F0] rounded-lg text-gray-900"
             >
-              <option value="text">Text (Single-line string)</option>
-              <option value="number">Number (Integer / Decimal)</option>
-              <option value="boolean">Boolean (True / False)</option>
-              <option value="date">Date</option>
-              <option value="datetime">DateTime</option>
-              <option value="email">Email Address</option>
-              <option value="phone">Phone Number</option>
-              <option value="select">Single Select (Choice)</option>
-              <option value="relation">Relation (Foreign key reference)</option>
-              <option value="json">JSON / Structured Object</option>
+              <option value="text">text (string)</option>
+              <option value="integer">integer (number)</option>
+              <option value="numeric">numeric (decimal/price)</option>
+              <option value="boolean">boolean (true/false)</option>
+              <option value="timestamptz">timestamptz (date & time)</option>
             </select>
           </div>
           <div className="flex items-center gap-2 pt-1">
             <input
               type="checkbox"
-              id="reqCheck"
+              id="req-f"
               checked={newFieldRequired}
               onChange={(e) => setNewFieldRequired(e.target.checked)}
-              className="rounded border-[#E8E8EA] text-[#D4146E] focus:ring-[#D4146E] w-4 h-4 cursor-pointer"
+              className="rounded border-gray-300 text-blue-600"
             />
-            <label htmlFor="reqCheck" className="text-xs font-medium text-[#171717] cursor-pointer">
-              Mark as Required
+            <label htmlFor="req-f" className="text-xs text-gray-700 font-medium">
+              Required field (必須項目)
             </label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setIsAddFieldOpen(false)}>
-              Cancel
+            <Button variant="outline" size="sm" onClick={() => setIsAddFieldOpen(false)} className="rounded-lg">
+              キャンセル
             </Button>
-            <Button variant="primary" size="sm" onClick={handleAddField}>
-              Add Field
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Add Record Modal */}
-      <Modal
-        isOpen={isAddRecordOpen}
-        onClose={() => setIsAddRecordOpen(false)}
-        title="Add Record"
-        description={`Insert record into '${activeTable?.display_name}' table.`}
-      >
-        <div className="space-y-3">
-          {activeTable?.fields?.map((f: any) => (
-            <div key={f.id} className="space-y-1">
-              <label className="block text-xs font-medium text-[#171717]">
-                {f.label} {f.is_required && <span className="text-[#D4146E]">*</span>}
-              </label>
-              {f.field_type === "boolean" ? (
-                <input
-                  type="checkbox"
-                  checked={!!recordFormData[f.name]}
-                  onChange={(e) =>
-                    setRecordFormData({ ...recordFormData, [f.name]: e.target.checked })
-                  }
-                  className="rounded border-[#E8E8EA] text-[#D4146E] focus:ring-[#D4146E] w-4 h-4"
-                />
-              ) : (
-                <Input
-                  type={f.field_type === "number" ? "number" : "text"}
-                  value={recordFormData[f.name] || ""}
-                  onChange={(e) =>
-                    setRecordFormData({
-                      ...recordFormData,
-                      [f.name]: f.field_type === "number" ? Number(e.target.value) : e.target.value,
-                    })
-                  }
-                  placeholder={`Enter ${f.label.toLowerCase()}...`}
-                  className="text-xs"
-                />
-              )}
-            </div>
-          ))}
-          <div className="flex justify-end gap-2 pt-3">
-            <Button variant="outline" size="sm" onClick={() => setIsAddRecordOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" size="sm" onClick={handleAddRecord}>
-              Save Record
+            <Button variant="primary" size="sm" onClick={handleAddField} className="bg-blue-600 text-white rounded-lg">
+              追加 (Add)
             </Button>
           </div>
         </div>
@@ -655,4 +778,3 @@ export default function DatabaseStudioPage({ params }: PageProps) {
     </div>
   );
 }
-

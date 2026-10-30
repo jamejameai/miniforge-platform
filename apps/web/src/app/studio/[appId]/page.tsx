@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import { useRouter } from "next/navigation";
 import {
   AppSpec,
   PageSpec,
@@ -28,7 +29,10 @@ import {
   Layers,
   PlusSquare,
   Palette,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Database,
+  Sliders,
+  Sparkles
 } from "lucide-react";
 
 interface PageProps {
@@ -36,6 +40,7 @@ interface PageProps {
 }
 
 export default function AppStudioPage({ params }: PageProps) {
+  const router = useRouter();
   const resolvedParams = use(params);
   const appId = resolvedParams.appId;
   const { showToast } = useToast();
@@ -121,7 +126,6 @@ export default function AppStudioPage({ params }: PageProps) {
   // Keyboard Shortcuts (Cmd+S, Cmd+Z, Cmd+Shift+Z, Cmd+K, Delete)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts if user is typing in an input/textarea
       const target = e.target as HTMLElement;
       const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
 
@@ -387,7 +391,7 @@ export default function AppStudioPage({ params }: PageProps) {
     pushSpecChange(newSpec);
   };
 
-  // Handle Component Selection (Single or Multi with Shift)
+  // Handle Component Selection
   const handleSelectComponent = (id: string | null, isMulti: boolean = false) => {
     if (!id) {
       setSelectedComponentId(null);
@@ -413,8 +417,8 @@ export default function AppStudioPage({ params }: PageProps) {
 
   if (!appData || !appSpec) {
     return (
-      <div className="flex h-screen items-center justify-center bg-white text-xs text-[#777777]">
-        Loading MiniForge Studio...
+      <div className="flex h-screen items-center justify-center bg-[#F8FAFC] text-xs text-gray-500">
+        Loading MiniForge Canvas...
       </div>
     );
   }
@@ -425,16 +429,78 @@ export default function AppStudioPage({ params }: PageProps) {
     activePage?.components.find((c) => c.id === selectedComponentId) || null;
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
-      {/* Studio Navigation Sidebar */}
-      <StudioNav
-        appId={appId}
-        appName={appData.name}
-        appSlug={appData.slug}
-      />
+    <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
+      {/* Extreme Left Icon Rail (Matching Image 1 Rail) */}
+      <div className="w-14 bg-white border-r border-[#E2E8F0] flex flex-col items-center py-4 justify-between shrink-0 select-none z-20">
+        <div className="flex flex-col items-center gap-4">
+          <button
+            onClick={() => setLeftTab("palette")}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              leftTab === "palette"
+                ? "bg-blue-50 text-blue-600 font-bold"
+                : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"
+            }`}
+            title="Components Palette"
+          >
+            <PlusSquare className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setLeftTab("hierarchy")}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              leftTab === "hierarchy"
+                ? "bg-blue-50 text-blue-600 font-bold"
+                : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"
+            }`}
+            title="Pages & Layers"
+          >
+            <Layers className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => router.push(`/studio/${appId}/database`)}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            title="Database Studio (ERD Diagram)"
+          >
+            <Database className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setLeftTab("tokens")}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              leftTab === "tokens"
+                ? "bg-blue-50 text-blue-600 font-bold"
+                : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"
+            }`}
+            title="Design Tokens"
+          >
+            <Palette className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setLeftTab("assets")}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              leftTab === "assets"
+                ? "bg-blue-50 text-blue-600 font-bold"
+                : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"
+            }`}
+            title="Media Assets"
+          >
+            <ImageIcon className="w-4 h-4" />
+          </button>
+        </div>
+
+        <button
+          onClick={() => setIsCommandPaletteOpen(true)}
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors font-mono text-[10px]"
+          title="Command Palette (Cmd+K)"
+        >
+          ⌘K
+        </button>
+      </div>
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header */}
+        {/* Top Header (Matching Image 1: Logo + Status Badge + App Name + Center Pill Toggle + Publish Pill) */}
         <StudioHeader
           appId={appId}
           appName={appData.name}
@@ -444,6 +510,10 @@ export default function AppStudioPage({ params }: PageProps) {
           onViewportChange={setViewport}
           studioMode={studioMode}
           onStudioModeChange={setStudioMode}
+          activeTopTab="canvas"
+          onTopTabChange={(tab) => {
+            if (tab === "database") router.push(`/studio/${appId}/database`);
+          }}
           isPreview={isPreview}
           onPreviewToggle={() => setIsPreview(!isPreview)}
           canUndo={historyIndex > 0}
@@ -459,65 +529,15 @@ export default function AppStudioPage({ params }: PageProps) {
 
         {/* Builder Work Area */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Panel: Creation & System Tabs */}
+          {/* Secondary Left Panel: Components Palette & Layer Hierarchy */}
           {!isPreview && (
-            <div className="w-80 border-r border-[#E8E8EA] bg-white flex flex-col shrink-0">
-              {/* Tab Selector */}
-              <div className="flex border-b border-[#E8E8EA] bg-[#F7F7F8] p-1 gap-1">
-                <button
-                  onClick={() => setLeftTab("palette")}
-                  className={`flex-1 py-1.5 px-2 rounded text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
-                    leftTab === "palette"
-                      ? "bg-white text-[#D4146E] shadow-xs"
-                      : "text-[#777777] hover:text-[#171717]"
-                  }`}
-                  title="Components Library"
-                >
-                  <PlusSquare className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Add</span>
-                </button>
-                <button
-                  onClick={() => setLeftTab("hierarchy")}
-                  className={`flex-1 py-1.5 px-2 rounded text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
-                    leftTab === "hierarchy"
-                      ? "bg-white text-[#D4146E] shadow-xs"
-                      : "text-[#777777] hover:text-[#171717]"
-                  }`}
-                  title="Pages & Layers"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Layers</span>
-                </button>
-                <button
-                  onClick={() => setLeftTab("tokens")}
-                  className={`flex-1 py-1.5 px-2 rounded text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
-                    leftTab === "tokens"
-                      ? "bg-white text-[#D4146E] shadow-xs"
-                      : "text-[#777777] hover:text-[#171717]"
-                  }`}
-                  title="Design Tokens"
-                >
-                  <Palette className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Theme</span>
-                </button>
-                <button
-                  onClick={() => setLeftTab("assets")}
-                  className={`flex-1 py-1.5 px-2 rounded text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
-                    leftTab === "assets"
-                      ? "bg-white text-[#D4146E] shadow-xs"
-                      : "text-[#777777] hover:text-[#171717]"
-                  }`}
-                  title="Curated Stock Assets"
-                >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Assets</span>
-                </button>
-              </div>
-
-              {/* Tab Contents */}
+            <div className="w-64 border-r border-[#E2E8F0] bg-white flex flex-col shrink-0 z-10">
               <div className="flex-1 overflow-hidden">
                 {leftTab === "palette" && (
-                  <ComponentPalette onAddComponent={handleAddComponent} />
+                  <ComponentPalette
+                    onAddComponent={handleAddComponent}
+                    onAddPageModal={() => handleAddPage(`Page ${appSpec.pages.length + 1}`, `/page-${appSpec.pages.length + 1}`)}
+                  />
                 )}
                 {leftTab === "hierarchy" && (
                   <PageTreeNav
@@ -548,9 +568,10 @@ export default function AppStudioPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* Center Canvas */}
+          {/* Center Multi-Artboard Canvas with Bezier Flow Curves (Exact Image 1 layout) */}
           <VisualCanvas
             page={activePage}
+            allPages={appSpec.pages}
             theme={appSpec.theme || DEFAULT_THEME}
             navigation={appSpec.navigation}
             viewport={viewport}
@@ -567,7 +588,7 @@ export default function AppStudioPage({ params }: PageProps) {
             onOpenAddModal={() => setLeftTab("palette")}
           />
 
-          {/* Right Inspector */}
+          {/* Right Inspector (Matching Image 1: エレメント | スタイル | アクション) */}
           {!isPreview && (
             <PropertiesInspector
               page={activePage}
@@ -584,7 +605,7 @@ export default function AppStudioPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Global Command Palette */}
+      {/* Global Command Palette (Cmd+K) */}
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
@@ -595,8 +616,7 @@ export default function AppStudioPage({ params }: PageProps) {
         onTogglePreview={() => setIsPreview(!isPreview)}
         onSave={handleSave}
         onPublish={() => {
-          // Open publish modal via studio header trigger or action
-          const publishBtn = document.querySelector('button[title="Publish Snapshot"]') as HTMLButtonElement;
+          const publishBtn = document.querySelector('button[title="公開"]') as HTMLButtonElement;
           if (publishBtn) publishBtn.click();
         }}
       />
