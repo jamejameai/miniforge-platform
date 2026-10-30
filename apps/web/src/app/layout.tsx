@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ToastProvider } from "@/components/ui/toast";
+import { LearningProvider } from "@/lib/learning-mode";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,7 +25,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-white text-[#171717] antialiased selection:bg-[#D4146E] selection:text-white">
         <ToastProvider>
-          {children}
+          <LearningProvider>
+            {children}
+          </LearningProvider>
         </ToastProvider>
       </body>
     </html>

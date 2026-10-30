@@ -17,7 +17,9 @@ import { Badge } from "@/lib/../components/ui/badge";
 import { Modal } from "@/lib/../components/ui/modal";
 import { Input } from "@/lib/../components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { useLearningMode } from "@/lib/learning-mode";
 import { api } from "@/lib/api";
+import { GraduationCap, Zap } from "lucide-react";
 
 interface StudioHeaderProps {
   appId: string;
@@ -55,6 +57,7 @@ export function StudioHeader({
   onPublished,
 }: StudioHeaderProps) {
   const { showToast } = useToast();
+  const { mode, isBeginner, toggleMode } = useLearningMode();
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [changelog, setChangelog] = useState("Production release snapshot");
   const [isPublishing, setIsPublishing] = useState(false);
@@ -168,6 +171,29 @@ export function StudioHeader({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
+          {/* Learning Mode Switcher */}
+          <button
+            onClick={toggleMode}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all ${
+              isBeginner
+                ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                : "bg-[#171717] text-white border-[#262626] hover:bg-[#262626]"
+            }`}
+            title={isBeginner ? "Switch to Pro Mode (Compact Developer Experience)" : "Switch to Beginner Mode (Guided Design & Database Tutorials)"}
+          >
+            {isBeginner ? (
+              <>
+                <GraduationCap className="w-3.5 h-3.5 text-amber-600" />
+                <span className="text-[11px] font-semibold">Beginner Guide</span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-3.5 h-3.5 text-[#D4146E]" />
+                <span className="text-[11px] font-semibold">Pro Mode</span>
+              </>
+            )}
+          </button>
+
           {onPreviewToggle && (
             <Button
               variant={isPreview ? "secondary" : "outline"}

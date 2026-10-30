@@ -14,6 +14,7 @@ from app.api.telegram import router as telegram_router
 from app.api.pos import router as pos_router
 from app.api.workflows import router as workflows_router
 from app.api.ai import router as ai_router
+from app.api.templates import router as templates_router
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -124,6 +125,7 @@ app.include_router(telegram_router, prefix="/api")
 app.include_router(pos_router, prefix="/api")
 app.include_router(workflows_router, prefix="/api")
 app.include_router(ai_router, prefix="/api")
+app.include_router(templates_router, prefix="/api")
 
 @app.get("/api/health")
 async def health_check():

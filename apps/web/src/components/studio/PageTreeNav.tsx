@@ -10,7 +10,8 @@ import {
   ChevronRight,
   MoveUp,
   MoveDown,
-  Layers
+  Layers,
+  Copy
 } from "lucide-react";
 import { Button } from "@/lib/../components/ui/button";
 import { Modal } from "@/lib/../components/ui/modal";
@@ -26,6 +27,7 @@ interface PageTreeNavProps {
   onDeletePage: (pageId: string) => void;
   onMoveComponent: (pageId: string, compIndex: number, direction: "up" | "down") => void;
   onDeleteComponent: (pageId: string, compIndex: number) => void;
+  onDuplicateComponent?: (pageId: string, compIndex: number) => void;
 }
 
 export function PageTreeNav({
@@ -38,6 +40,7 @@ export function PageTreeNav({
   onDeletePage,
   onMoveComponent,
   onDeleteComponent,
+  onDuplicateComponent,
 }: PageTreeNavProps) {
   const [isAddPageOpen, setIsAddPageOpen] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState("");
@@ -173,6 +176,18 @@ export function PageTreeNav({
                   >
                     <MoveDown className="w-3 h-3" />
                   </button>
+                  {onDuplicateComponent && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDuplicateComponent(activePage.id, idx);
+                      }}
+                      className={`p-1 rounded ${isSelected ? "hover:bg-white/20" : "hover:bg-[#E8E8EA]"}`}
+                      title="Duplicate"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

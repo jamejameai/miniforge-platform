@@ -86,10 +86,15 @@ Access the Studio at `http://localhost:3000`.
 
 ---
 
-## Documentation
+## Documentation Suite
 
 - [Architecture Guide](file:///Users/macbook/miniforce/ARCHITECTURE.md)
+- [Product Requirements Document](file:///Users/macbook/miniforce/PRODUCT-REQUIREMENTS.md)
+- [Design System Specification](file:///Users/macbook/miniforce/DESIGN-SYSTEM.md)
 - [Database Schema & Strategy](file:///Users/macbook/miniforce/DATABASE.md)
+- [Platform API Reference](file:///Users/macbook/miniforce/API.md)
+- [Workflow Automation Engine](file:///Users/macbook/miniforce/WORKFLOW-ENGINE.md)
+- [Telegram Mini App Integration](file:///Users/macbook/miniforce/TELEGRAM-INTEGRATION.md)
 - [Security & Tenant Isolation](file:///Users/macbook/miniforce/SECURITY.md)
 - [Application Configuration Schema](file:///Users/macbook/miniforce/APPLICATION-SCHEMA.md)
 - [Development Setup](file:///Users/macbook/miniforce/DEVELOPMENT.md)

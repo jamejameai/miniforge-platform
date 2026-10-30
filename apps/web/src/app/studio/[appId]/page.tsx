@@ -195,6 +195,26 @@ export default function AppStudioPage({ params }: PageProps) {
     setSelectedComponentId(null);
   };
 
+  // Duplicate Component
+  const handleDuplicateComponent = (pageId: string, compIndex: number) => {
+    if (!appSpec) return;
+    const page = appSpec.pages.find((p) => p.id === pageId);
+    if (!page || compIndex < 0 || compIndex >= page.components.length) return;
+    const targetComp = page.components[compIndex];
+    const duplicatedComp: ComponentNode = {
+      ...targetComp,
+      id: `comp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      props: JSON.parse(JSON.stringify(targetComp.props || {}))
+    };
+    const updatedComponents = [...page.components];
+    updatedComponents.splice(compIndex + 1, 0, duplicatedComp);
+    const updatedPages = appSpec.pages.map((p) =>
+      p.id === pageId ? { ...p, components: updatedComponents } : p
+    );
+    pushSpecChange({ ...appSpec, pages: updatedPages });
+    setSelectedComponentId(duplicatedComp.id);
+  };
+
   // Update Page Attributes
   const handleUpdatePage = (updates: Partial<PageSpec>) => {
     if (!appSpec) return;
@@ -309,6 +329,7 @@ export default function AppStudioPage({ params }: PageProps) {
                     onDeletePage={handleDeletePage}
                     onMoveComponent={handleMoveComponent}
                     onDeleteComponent={handleDeleteComponent}
+                    onDuplicateComponent={handleDuplicateComponent}
                   />
                 )}
               </div>
@@ -326,6 +347,7 @@ export default function AppStudioPage({ params }: PageProps) {
             onSelectComponent={setSelectedComponentId}
             onMoveComponent={(idx, dir) => handleMoveComponent(activePageId, idx, dir)}
             onDeleteComponent={(idx) => handleDeleteComponent(activePageId, idx)}
+            onDuplicateComponent={(idx) => handleDuplicateComponent(activePageId, idx)}
             onNavigatePage={setActivePageId}
             onOpenAddModal={() => setLeftTab("palette")}
           />

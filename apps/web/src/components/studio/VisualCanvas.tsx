@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { PageSpec, ComponentNode, ThemeConfig, NavigationConfig } from "@miniforge/app-schema";
 import {
   Smartphone,
@@ -13,9 +14,28 @@ import {
   Sparkles,
   Wifi,
   Battery,
-  Signal
+  Signal,
+  Copy,
+  ZoomIn,
+  ZoomOut,
+  Grid3X3,
+  GraduationCap
 } from "lucide-react";
 import { Button } from "@/lib/../components/ui/button";
+import { useLearningMode } from "@/lib/learning-mode";
+
+const COMPONENT_LEARNING_GUIDE: Record<string, string> = {
+  HeroBanner: "The visual anchor of your app. Highlights your value proposition with a high-contrast headline, badge, and primary action button.",
+  ProductGrid: "Connects directly to your POS catalog. Items automatically reflect live prices, imagery, and deduct stock on checkout.",
+  CartView: "Manages items chosen by the customer. Enables instant checkout, discounts, and triggers server-side order workflows.",
+  SectionHeading: "Organizes your page into clear sections, improving readability on mobile Telegram screens.",
+  Button: "Triggers navigation to another page or executes actions. Customize background color to match your brand token.",
+  Card: "A versatile container that groups related content, images, and action links with subtle borders.",
+  StatCard: "Presents key performance metrics or counts with a prominent number and positive/negative trend badge.",
+  Table: "Renders tabular records. Can be connected to custom dynamic database tables created in Database Studio.",
+  Input: "Collects user input such as inquiries, contact numbers, or feedback forms.",
+  Divider: "Creates breathing room and visual rhythm between distinct content modules."
+};
 
 interface VisualCanvasProps {
   page: PageSpec;
@@ -27,6 +47,7 @@ interface VisualCanvasProps {
   onSelectComponent: (id: string | null) => void;
   onMoveComponent: (compIndex: number, direction: "up" | "down") => void;
   onDeleteComponent: (compIndex: number) => void;
+  onDuplicateComponent?: (compIndex: number) => void;
   onNavigatePage?: (pageId: string) => void;
   onOpenAddModal?: () => void;
 }
@@ -41,9 +62,16 @@ export function VisualCanvas({
   onSelectComponent,
   onMoveComponent,
   onDeleteComponent,
+  onDuplicateComponent,
   onNavigatePage,
   onOpenAddModal,
 }: VisualCanvasProps) {
+  const [zoom, setZoom] = useState(100);
+  const [showGrid, setShowGrid] = useState(false);
+  const { isBeginner } = useLearningMode();
+
+  const selectedComp = page.components.find((c) => c.id === selectedComponentId);
+
   const getContainerWidth = () => {
     switch (viewport) {
       case "mobile":
@@ -309,6 +337,18 @@ export function VisualCanvas({
             >
               <MoveDown className="w-3 h-3" />
             </button>
+            {onDuplicateComponent && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicateComponent(index);
+                }}
+                className="hover:text-[#D4146E]"
+                title="Duplicate component"
+              >
+                <Copy className="w-3 h-3" />
+              </button>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -328,11 +368,20 @@ export function VisualCanvas({
 
   return (
     <div
-      className="flex-1 bg-[#F7F7F8] overflow-y-auto flex items-start justify-center p-6 select-none"
+      className="flex-1 bg-[#F7F7F8] overflow-y-auto flex items-start justify-center p-6 select-none relative"
+      style={{
+        background: showGrid
+          ? "radial-gradient(circle, #D8D8DA 1px, transparent 1px) 0 0 / 16px 16px, #F7F7F8"
+          : undefined,
+      }}
       onClick={() => onSelectComponent(null)}
     >
       <div
-        className={`${getContainerWidth()} bg-white min-h-[720px] rounded-2xl border border-[#E8E8EA] shadow-sm flex flex-col overflow-hidden transition-all duration-300 relative`}
+        className={`${getContainerWidth()} bg-white min-h-[720px] rounded-2xl border border-[#E8E8EA] shadow-sm flex flex-col overflow-hidden transition-all duration-200 relative`}
+        style={{
+          transform: `scale(${zoom / 100})`,
+          transformOrigin: "top center",
+        }}
       >
         {/* Telegram Frame Simulated Top Bar */}
         {viewport === "mobile" && (
@@ -411,6 +460,64 @@ export function VisualCanvas({
           </div>
         )}
       </div>
+
+      {/* Canvas Tools Toolbar (Zoom, Grid) */}
+      {!isPreview && (
+        <div className="absolute bottom-6 left-6 z-30 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm border border-[#E8E8EA] shadow-md px-2.5 py-1.5 rounded-lg text-xs">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoom((z) => Math.max(50, z - 10));
+            }}
+            className="p-1 rounded hover:bg-[#F7F7F8] text-[#777777] hover:text-[#171717]"
+            title="Zoom out"
+          >
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
+          <span className="font-mono text-[11px] font-semibold text-[#171717] w-10 text-center">
+            {zoom}%
+          </span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoom((z) => Math.min(150, z + 10));
+            }}
+            className="p-1 rounded hover:bg-[#F7F7F8] text-[#777777] hover:text-[#171717]"
+            title="Zoom in"
+          >
+            <ZoomIn className="w-3.5 h-3.5" />
+          </button>
+          <div className="h-3.5 w-px bg-[#E8E8EA] mx-1" />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowGrid(!showGrid);
+            }}
+            className={`p-1 rounded transition-colors ${
+              showGrid ? "bg-[#D4146E]/10 text-[#D4146E]" : "text-[#777777] hover:text-[#171717]"
+            }`}
+            title="Toggle alignment grid"
+          >
+            <Grid3X3 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Beginner Mode Educational Guide Card */}
+      {isBeginner && selectedComp && !isPreview && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute bottom-6 right-6 z-30 max-w-sm bg-white/95 backdrop-blur-sm border border-amber-200 shadow-lg p-3.5 rounded-xl text-xs space-y-1.5 animate-in slide-in-from-bottom-2"
+        >
+          <div className="flex items-center gap-1.5 font-bold text-amber-900">
+            <GraduationCap className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Learn: {selectedComp.type}</span>
+          </div>
+          <p className="text-[11px] text-[#555555] leading-relaxed">
+            {COMPONENT_LEARNING_GUIDE[selectedComp.type] || "Interactive component rendered inside your Mini App frame."}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

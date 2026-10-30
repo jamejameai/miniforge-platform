@@ -193,3 +193,41 @@ async def test_ai_spec_generation():
         assert "suggested_spec" in ai_data
         assert len(ai_data["suggested_spec"]["pages"]) >= 3
         assert len(ai_data["suggested_tables"]) >= 1
+
+@pytest.mark.asyncio
+async def test_blueprint_and_templates_instantiation():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Test Templates Catalog
+        tpl_resp = await client.get("/api/templates")
+        assert tpl_resp.status_code == 200
+        tpls = tpl_resp.json()
+        assert len(tpls) >= 12
+        restaurant_tpl = next(t for t in tpls if t["id"] == "restaurant")
+        assert restaurant_tpl["category"] == "Food & Hospitality"
+
+        # Instantiate from template
+        inst_tpl = await client.post("/api/templates/restaurant/instantiate")
+        assert inst_tpl.status_code == 200
+        app_from_tpl = inst_tpl.json()
+        assert "Artisan Restaurant" in app_from_tpl["name"]
+
+        # 2. Test AI Blueprint Generation
+        bp_resp = await client.post("/api/ai/blueprint", json={
+            "prompt": "An artisan bakery and espresso cafe with takeaway ordering and table booking"
+        })
+        assert bp_resp.status_code == 200
+        bp = bp_resp.json()
+        assert bp["category"] == "Food & Hospitality"
+        assert len(bp["sitemap"]) >= 3
+        assert len(bp["database_tables"]) >= 1
+        assert len(bp["clarifying_questions"]) >= 1
+
+        # 3. Instantiate App from Blueprint
+        inst_bp = await client.post("/api/ai/blueprint/instantiate", json={
+            "blueprint": bp,
+            "include_sample_data": True
+        })
+        assert inst_bp.status_code == 200
+        app_from_bp = inst_bp.json()
+        assert app_from_bp["id"] is not None
+        assert app_from_bp["draft_spec"]["name"] == bp["app_name"]

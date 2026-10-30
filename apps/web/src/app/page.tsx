@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Layers,
   Plus,
@@ -17,7 +18,16 @@ import {
   TrendingUp,
   Activity,
   CheckCircle2,
-  Clock
+  Clock,
+  Wand2,
+  LayoutTemplate,
+  FileCode2,
+  ArrowRight,
+  HelpCircle,
+  Zap,
+  Tag,
+  Check,
+  Rocket
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
@@ -27,15 +37,32 @@ import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 
 export default function WorkspaceDashboard() {
+  const router = useRouter();
   const { showToast } = useToast();
   const [apps, setApps] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  // Creation Modes: 'idea' | 'template' | 'scratch'
+  const [creationTab, setCreationTab] = useState<"idea" | "template" | "scratch">("idea");
+
+  // Idea Mode state
+  const [ideaPrompt, setIdeaPrompt] = useState("");
+  const [isGeneratingBlueprint, setIsGeneratingBlueprint] = useState(false);
+  const [blueprint, setBlueprint] = useState<any>(null);
+  const [isBuildingFromBlueprint, setIsBuildingFromBlueprint] = useState(false);
+
+  // Template Mode state
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("restaurant");
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState<string>("All");
+  const [isInstantiatingTemplate, setIsInstantiatingTemplate] = useState(false);
+
+  // Scratch Mode state
   const [newAppName, setNewAppName] = useState("");
   const [newAppDesc, setNewAppDesc] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState("commerce");
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingScratch, setIsCreatingScratch] = useState(false);
 
   const loadApps = async () => {
     try {
@@ -49,24 +76,79 @@ export default function WorkspaceDashboard() {
     }
   };
 
+  const loadTemplates = async () => {
+    try {
+      const data = await api.listTemplates();
+      setTemplates(data);
+    } catch (err) {
+      console.error("Failed to load templates:", err);
+    }
+  };
+
   useEffect(() => {
     loadApps();
+    loadTemplates();
   }, []);
 
-  const handleCreateApp = async () => {
+  const handleGenerateBlueprint = async () => {
+    if (!ideaPrompt.trim() || ideaPrompt.length < 5) {
+      showToast("Please describe your application idea in a few sentences.", "info");
+      return;
+    }
+    try {
+      setIsGeneratingBlueprint(true);
+      setBlueprint(null);
+      const res = await api.generateBlueprint(ideaPrompt.trim());
+      setBlueprint(res);
+      showToast("Product Blueprint generated successfully!", "success");
+    } catch (err: any) {
+      showToast(err.message || "Failed to generate blueprint.", "error");
+    } finally {
+      setIsGeneratingBlueprint(false);
+    }
+  };
+
+  const handleInstantiateBlueprint = async () => {
+    if (!blueprint) return;
+    try {
+      setIsBuildingFromBlueprint(true);
+      const app = await api.instantiateBlueprint(blueprint, true);
+      showToast(`Application "${app.name}" created! Opening Studio...`, "success");
+      setIsCreateOpen(false);
+      router.push(`/studio/${app.id}`);
+    } catch (err: any) {
+      showToast(err.message || "Failed to instantiate blueprint.", "error");
+    } finally {
+      setIsBuildingFromBlueprint(false);
+    }
+  };
+
+  const handleInstantiateTemplate = async (templateId: string) => {
+    try {
+      setIsInstantiatingTemplate(true);
+      const app = await api.instantiateTemplate(templateId);
+      showToast(`Application "${app.name}" created from template! Opening Studio...`, "success");
+      setIsCreateOpen(false);
+      router.push(`/studio/${app.id}`);
+    } catch (err: any) {
+      showToast(err.message || "Failed to launch template.", "error");
+    } finally {
+      setIsInstantiatingTemplate(false);
+    }
+  };
+
+  const handleCreateScratch = async () => {
     if (!newAppName.trim()) return;
     try {
-      setIsCreating(true);
+      setIsCreatingScratch(true);
       const app = await api.createApp(newAppName.trim(), newAppDesc.trim());
+      showToast(`Application "${app.name}" created! Opening Studio...`, "success");
       setIsCreateOpen(false);
-      setNewAppName("");
-      setNewAppDesc("");
-      showToast(`Created application "${app.name}"`, "success");
-      loadApps();
+      router.push(`/studio/${app.id}`);
     } catch (err: any) {
       showToast(err.message || "Failed to create app.", "error");
     } finally {
-      setIsCreating(false);
+      setIsCreatingScratch(false);
     }
   };
 
@@ -102,6 +184,11 @@ export default function WorkspaceDashboard() {
   );
 
   const publishedCount = apps.filter((a) => a.is_published).length;
+
+  const categories = ["All", ...Array.from(new Set(templates.map((t) => t.category)))];
+  const filteredTemplates = templates.filter(
+    (t) => templateCategoryFilter === "All" || t.category === templateCategoryFilter
+  );
 
   return (
     <div className="min-h-screen bg-[#F7F7F8] flex flex-col">
@@ -300,83 +387,362 @@ export default function WorkspaceDashboard() {
         </div>
       </main>
 
-      {/* Quick Create Application Modal */}
+      {/* Multi-Door Creation Modal (Idea -> Blueprint, 12 Templates, Scratch) */}
       <Modal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        title="Create New Application"
-        description="Launch an application configured for Telegram Mini App and Web deployment."
+        title="Create Something New"
+        description="Turn your idea into a production-ready Telegram Mini App & Standalone Web platform."
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-[#171717] mb-1">
-              Application Name
-            </label>
-            <Input
-              value={newAppName}
-              onChange={(e) => setNewAppName(e.target.value)}
-              placeholder="e.g. Kyoto Tea Bar"
-              className="text-xs"
-            />
+        <div className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
+          {/* Creation Mode Switcher Tabs */}
+          <div className="flex border-b border-[#E8E8EA] bg-[#F7F7F8] p-1 rounded-lg gap-1">
+            <button
+              onClick={() => setCreationTab("idea")}
+              className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                creationTab === "idea"
+                  ? "bg-white text-[#D4146E] shadow-xs"
+                  : "text-[#777777] hover:text-[#171717]"
+              }`}
+            >
+              <Wand2 className="w-3.5 h-3.5 text-[#D4146E]" />
+              <span>Start with an Idea</span>
+            </button>
+
+            <button
+              onClick={() => setCreationTab("template")}
+              className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                creationTab === "template"
+                  ? "bg-white text-[#D4146E] shadow-xs"
+                  : "text-[#777777] hover:text-[#171717]"
+              }`}
+            >
+              <LayoutTemplate className="w-3.5 h-3.5 text-[#171717]" />
+              <span>Templates ({templates.length || 12})</span>
+            </button>
+
+            <button
+              onClick={() => setCreationTab("scratch")}
+              className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                creationTab === "scratch"
+                  ? "bg-white text-[#D4146E] shadow-xs"
+                  : "text-[#777777] hover:text-[#171717]"
+              }`}
+            >
+              <FileCode2 className="w-3.5 h-3.5 text-[#777777]" />
+              <span>Blank Project</span>
+            </button>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-[#171717] mb-1">
-              Description (Optional)
-            </label>
-            <Input
-              value={newAppDesc}
-              onChange={(e) => setNewAppDesc(e.target.value)}
-              placeholder="e.g. Artisanal green tea drinks and confectionery..."
-              className="text-xs"
-            />
-          </div>
+          {/* TAB 1: START WITH AN IDEA (AI PRODUCT PLANNING BLUEPRINT) */}
+          {creationTab === "idea" && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#171717] mb-1">
+                  Describe what you want to build
+                </label>
+                <textarea
+                  value={ideaPrompt}
+                  onChange={(e) => setIdeaPrompt(e.target.value)}
+                  placeholder="e.g. A modern organic pizzeria where patrons can browse the menu, book a dining table, place orders ahead with cash/card, and receive automatic confirmation alerts in Telegram."
+                  rows={3}
+                  className="w-full p-3 text-xs bg-white border border-[#E8E8EA] rounded-lg text-[#171717] placeholder:text-[#777777] focus:outline-none focus:ring-1 focus:ring-[#D4146E]"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <label className="block text-xs font-medium text-[#171717]">
-              Starting Template
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: "commerce", label: "Commerce & POS", desc: "Catalog, shopping cart, checkout, stock tracking" },
-                { id: "restaurant", label: "Hospitality & Cafe", desc: "Food menu, order ahead, table booking" },
-                { id: "services", label: "Services & Booking", desc: "Consultation, booking forms, calendar" },
-                { id: "blank", label: "Blank Slate", desc: "Start from a clean canvas" },
-              ].map((t) => (
-                <button
-                  type="button"
-                  key={t.id}
-                  onClick={() => setSelectedTemplate(t.id)}
-                  className={`p-2.5 rounded-lg border text-left transition-all ${
-                    selectedTemplate === t.id
-                      ? "border-[#D4146E] bg-[#D4146E]/5 ring-1 ring-[#D4146E]"
-                      : "border-[#E8E8EA] bg-[#F7F7F8] hover:bg-white"
-                  }`}
-                >
-                  <div className="text-xs font-semibold text-[#171717]">{t.label}</div>
-                  <div className="text-[10px] text-[#777777] mt-0.5 leading-snug">{t.desc}</div>
-                </button>
-              ))}
+              {/* Suggestion Chips */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-[#777777] tracking-wider">
+                  Popular Starting Concepts
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "Organic Pizzeria with table booking & Telegram alerts",
+                    "Luxury Barbershop appointment timeslots & specialist profiles",
+                    "Full-Stack Academy course catalog with admission forms",
+                    "Direct-to-Consumer Fashion boutique with express POS checkout",
+                  ].map((s, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setIdeaPrompt(s)}
+                      className="text-[11px] bg-[#F7F7F8] hover:bg-white text-[#171717] px-2.5 py-1 rounded-full border border-[#E8E8EA] transition-colors"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {!blueprint && (
+                <div className="flex justify-end pt-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleGenerateBlueprint}
+                    disabled={isGeneratingBlueprint || !ideaPrompt.trim()}
+                    className="text-xs gap-1.5"
+                  >
+                    <Wand2 className="w-3.5 h-3.5" />
+                    <span>{isGeneratingBlueprint ? "Analyzing & Planning Blueprint..." : "Generate Product Blueprint"}</span>
+                  </Button>
+                </div>
+              )}
+
+              {/* Generated Interactive Blueprint Review */}
+              {blueprint && (
+                <div className="p-4 rounded-xl border border-pink-200 bg-pink-50/20 space-y-4 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between border-b border-pink-200 pb-2">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4146E]">
+                        AI Product Consultant Blueprint
+                      </span>
+                      <h3 className="text-base font-bold text-[#171717] mt-0.5">{blueprint.app_name}</h3>
+                    </div>
+                    <Badge variant="pink" className="text-[11px]">{blueprint.category}</Badge>
+                  </div>
+
+                  <p className="text-xs text-[#555555] leading-relaxed">
+                    {blueprint.purpose}
+                  </p>
+
+                  {/* Target Users & Roles */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div className="bg-white p-3 rounded-lg border border-[#E8E8EA]">
+                      <span className="text-[10px] font-bold uppercase text-[#777777] block mb-1">Target Users</span>
+                      <div className="flex flex-wrap gap-1">
+                        {blueprint.target_users?.map((u: string, idx: number) => (
+                          <span key={idx} className="bg-[#F7F7F8] px-2 py-0.5 rounded text-[11px] text-[#171717]">
+                            {u}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-lg border border-[#E8E8EA]">
+                      <span className="text-[10px] font-bold uppercase text-[#777777] block mb-1">User Roles</span>
+                      <div className="space-y-1">
+                        {blueprint.roles?.map((r: any, idx: number) => (
+                          <div key={idx} className="text-[11px]">
+                            <strong className="text-[#171717]">{r.role}:</strong> <span className="text-[#777777]">{r.description}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Planned Sitemap */}
+                  <div className="bg-white p-3 rounded-lg border border-[#E8E8EA] space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase text-[#777777] block">Planned Navigation Sitemap</span>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {blueprint.sitemap?.map((p: any, idx: number) => (
+                        <div key={idx} className="p-2 bg-[#F7F7F8] rounded border border-[#E8E8EA]">
+                          <div className="font-semibold text-xs text-[#171717]">{p.name}</div>
+                          <div className="text-[10px] text-[#777777] font-mono">{p.path}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Feature Breakdown: Essential vs Recommended */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div className="bg-white p-3 rounded-lg border border-[#E8E8EA]">
+                      <span className="text-[10px] font-bold uppercase text-emerald-700 block mb-1">
+                        Essential Features (P0)
+                      </span>
+                      <ul className="space-y-1 text-[11px] text-[#555555]">
+                        {blueprint.features?.essential?.map((f: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-1.5">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-lg border border-[#E8E8EA]">
+                      <span className="text-[10px] font-bold uppercase text-sky-700 block mb-1">
+                        Recommended Automations (P1)
+                      </span>
+                      <ul className="space-y-1 text-[11px] text-[#555555]">
+                        {blueprint.features?.recommended?.map((f: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-1.5">
+                            <Zap className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Blueprint Database Tables & Workflows Count */}
+                  <div className="flex items-center justify-between text-xs text-[#777777] bg-white p-2.5 rounded-lg border border-[#E8E8EA]">
+                    <div className="flex items-center gap-4">
+                      <span>• Database: <strong className="text-[#171717]">{blueprint.database_tables?.length || 0} Dynamic Tables</strong></span>
+                      <span>• Workflows: <strong className="text-[#171717]">{blueprint.workflows?.length || 0} Automations</strong></span>
+                    </div>
+                    <span className="text-[11px] font-mono text-emerald-600 font-semibold">Ready to Instantiate</span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end gap-2 pt-2 border-t border-pink-200">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBlueprint(null)}
+                    >
+                      Modify Prompt
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleInstantiateBlueprint}
+                      disabled={isBuildingFromBlueprint}
+                      className="text-xs gap-1.5 shadow-sm"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{isBuildingFromBlueprint ? "Provisioning Application..." : "Launch Application from Blueprint"}</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsCreateOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleCreateApp}
-              disabled={isCreating || !newAppName.trim()}
-            >
-              {isCreating ? "Creating..." : "Create Application"}
-            </Button>
-          </div>
+          {/* TAB 2: START WITH A TEMPLATE (12 RICH INDUSTRY TEMPLATES) */}
+          {creationTab === "template" && (
+            <div className="space-y-4">
+              {/* Category Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setTemplateCategoryFilter(cat)}
+                    className={`px-3 py-1 rounded-full whitespace-nowrap text-[11px] font-medium transition-colors ${
+                      templateCategoryFilter === cat
+                        ? "bg-[#171717] text-white"
+                        : "bg-[#F7F7F8] text-[#777777] hover:text-[#171717] border border-[#E8E8EA]"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Templates Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                {filteredTemplates.map((t) => {
+                  const isSelected = selectedTemplateId === t.id;
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => setSelectedTemplateId(t.id)}
+                      className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all ${
+                        isSelected
+                          ? "border-[#D4146E] bg-[#D4146E]/5 ring-1 ring-[#D4146E]"
+                          : "border-[#E8E8EA] bg-white hover:bg-[#F7F7F8]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.color || "#D4146E" }} />
+                          <h4 className="font-bold text-xs text-[#171717]">{t.name}</h4>
+                        </div>
+                        {t.badge && (
+                          <Badge variant="secondary" className="text-[10px]">{t.badge}</Badge>
+                        )}
+                      </div>
+
+                      <p className="text-[11px] text-[#777777] leading-relaxed mb-3">
+                        {t.description}
+                      </p>
+
+                      <div className="flex items-center justify-between text-[10px] text-[#777777] font-mono border-t border-[#E8E8EA] pt-2">
+                        <span>{t.pages_count} Pages</span>
+                        <span>{t.tables_count} Tables</span>
+                        <span>{t.workflows_count} Automations</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E8E8EA]">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsCreateOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => handleInstantiateTemplate(selectedTemplateId)}
+                  disabled={isInstantiatingTemplate || !selectedTemplateId}
+                  className="text-xs gap-1.5"
+                >
+                  <Rocket className="w-3.5 h-3.5" />
+                  <span>{isInstantiatingTemplate ? "Launching Template..." : "Launch from Selected Template"}</span>
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: START FROM SCRATCH */}
+          {creationTab === "scratch" && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#171717] mb-1">
+                  Application Name
+                </label>
+                <Input
+                  value={newAppName}
+                  onChange={(e) => setNewAppName(e.target.value)}
+                  placeholder="e.g. Kyoto Tea Bar"
+                  className="text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#171717] mb-1">
+                  Description (Optional)
+                </label>
+                <Input
+                  value={newAppDesc}
+                  onChange={(e) => setNewAppDesc(e.target.value)}
+                  placeholder="e.g. Artisanal green tea drinks and confectionery..."
+                  className="text-xs"
+                />
+              </div>
+
+              <div className="p-3 bg-[#F7F7F8] rounded-lg border border-[#E8E8EA] text-xs text-[#777777] space-y-1">
+                <div className="font-semibold text-[#171717]">Blank Project Specifications:</div>
+                <div>• Initialized with standard mobile & desktop viewport canvas</div>
+                <div>• Default neutral SaaS color token system with #D4146E brand accent</div>
+                <div>• Empty component hierarchy ready for drag-and-drop design</div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E8E8EA]">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsCreateOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleCreateScratch}
+                  disabled={isCreatingScratch || !newAppName.trim()}
+                  className="text-xs"
+                >
+                  {isCreatingScratch ? "Creating..." : "Create Blank Project"}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
     </div>
