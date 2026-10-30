@@ -89,7 +89,7 @@ export function PropertiesInspector({
 
     return (
       <aside className="w-80 border-l border-[#E2E8F0] bg-white flex flex-col h-full overflow-hidden select-none">
-        {/* Top Tab Pills (Matching Image 1: エレメント | スタイル | アクション) */}
+        {/* Top Tab Pills: Elements | Style | Actions */}
         <div className="p-3 border-b border-[#E2E8F0] flex items-center justify-center gap-1 bg-[#F8FAFC]">
           <button
             onClick={() => setActiveTab("elements")}
@@ -99,7 +99,7 @@ export function PropertiesInspector({
                 : "text-gray-500 hover:text-gray-900"
             }`}
           >
-            エレメント
+            Elements
           </button>
           <button
             onClick={() => setActiveTab("style")}
@@ -109,7 +109,7 @@ export function PropertiesInspector({
                 : "text-gray-500 hover:text-gray-900"
             }`}
           >
-            スタイル
+            Style
           </button>
           <button
             onClick={() => setActiveTab("action")}
@@ -119,7 +119,7 @@ export function PropertiesInspector({
                 : "text-gray-500 hover:text-gray-900"
             }`}
           >
-            アクション
+            Actions
           </button>
         </div>
 
@@ -137,12 +137,12 @@ export function PropertiesInspector({
 
         {/* Tab Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-5 text-xs">
-          {/* TAB 1: スタイル (Style - Exact match to Image 1) */}
+          {/* TAB 1: Style */}
           {activeTab === "style" && (
             <>
               {/* Alignment Controls (6 icons) */}
               <div className="space-y-1.5">
-                <span className="text-[11px] font-medium text-gray-500">位置 (Alignment & Position)</span>
+                <span className="text-[11px] font-medium text-gray-500">Alignment & Position</span>
                 <div className="flex items-center justify-between p-1 bg-[#F1F5F9] rounded-lg border border-[#E2E8F0]">
                   <button
                     onClick={() => handleStyleChange("textAlign", "left")}
@@ -209,12 +209,12 @@ export function PropertiesInspector({
                 </div>
               </div>
 
-              {/* Constraints / Pinning (上部固定, 下部固定, 固定なし) */}
+              {/* Constraints / Pinning (Top, Bottom, None) */}
               <div className="grid grid-cols-3 gap-1.5">
                 {[
-                  { id: "top", label: "上部固定" },
-                  { id: "bottom", label: "下部固定" },
-                  { id: "none", label: "固定なし" },
+                  { id: "top", label: "Pin Top" },
+                  { id: "bottom", label: "Pin Bottom" },
+                  { id: "none", label: "No Pin" },
                 ].map((pin) => (
                   <button
                     key={pin.id}
@@ -232,7 +232,7 @@ export function PropertiesInspector({
 
               {/* Dimensions W, H with Ratio Lock */}
               <div className="space-y-1.5">
-                <span className="text-[11px] font-medium text-gray-500">サイズ (Size)</span>
+                <span className="text-[11px] font-medium text-gray-500">Dimensions (W / H)</span>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 flex items-center bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg px-2.5 py-1">
                     <span className="text-[11px] font-mono text-gray-400 mr-2">W</span>
@@ -272,10 +272,10 @@ export function PropertiesInspector({
                 </div>
               </div>
 
-              {/* Opacity Slider (不透明度 100%) */}
+              {/* Opacity Slider */}
               <div className="space-y-1.5 pt-1">
                 <div className="flex justify-between text-[11px]">
-                  <span className="text-gray-500 font-medium">不透明度 (Opacity)</span>
+                  <span className="text-gray-500 font-medium">Opacity</span>
                   <span className="font-mono text-gray-700">{opacityVal}%</span>
                 </div>
                 <input
@@ -292,9 +292,9 @@ export function PropertiesInspector({
                 />
               </div>
 
-              {/* Typography Section (文字) */}
+              {/* Typography Section */}
               <div className="pt-3 border-t border-gray-100 space-y-2.5">
-                <span className="text-[11px] font-bold text-gray-800">文字 (Typography)</span>
+                <span className="text-[11px] font-bold text-gray-800">Typography</span>
 
                 {/* Font family */}
                 <select
@@ -335,11 +335,11 @@ export function PropertiesInspector({
                 {/* Line Height & Letter Spacing */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex items-center bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg px-2 py-1">
-                    <span className="text-[10px] text-gray-400 mr-1.5">行高</span>
+                    <span className="text-[10px] text-gray-400 mr-1.5">Line</span>
                     <span className="text-xs text-gray-800 font-mono">180%</span>
                   </div>
                   <div className="flex items-center bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg px-2 py-1">
-                    <span className="text-[10px] text-gray-400 mr-1.5">字間</span>
+                    <span className="text-[10px] text-gray-400 mr-1.5">Letter</span>
                     <span className="text-xs text-gray-800 font-mono">0%</span>
                   </div>
                 </div>
@@ -382,10 +382,10 @@ export function PropertiesInspector({
             </>
           )}
 
-          {/* TAB 2: エレメント (Content Properties) */}
+          {/* TAB 2: Elements (Content Properties) */}
           {activeTab === "elements" && (
             <div className="space-y-3">
-              <span className="text-[11px] font-bold text-gray-800">コンポーネント設定 (Properties)</span>
+              <span className="text-[11px] font-bold text-gray-800">Component Properties</span>
               {meta?.propertySchemas.map((schema) => {
                 const val = props[schema.name] !== undefined ? props[schema.name] : schema.defaultValue;
 
@@ -445,13 +445,13 @@ export function PropertiesInspector({
             </div>
           )}
 
-          {/* TAB 3: アクション (Navigation Triggers & Workflows) */}
+          {/* TAB 3: Actions (Navigation Triggers & Workflows) */}
           {activeTab === "action" && (
             <div className="space-y-3">
-              <span className="text-[11px] font-bold text-gray-800">クリックアクション (Click Action)</span>
+              <span className="text-[11px] font-bold text-gray-800">Click Action</span>
 
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-700">ターゲット画面 (Target Screen)</label>
+                <label className="text-xs font-medium text-gray-700">Target Screen</label>
                 <select
                   value={
                     selectedComponent.type === "Button"
@@ -468,7 +468,7 @@ export function PropertiesInspector({
                   }}
                   className="w-full h-8 px-2 text-xs bg-white border border-[#E2E8F0] rounded-lg text-gray-800"
                 >
-                  <option value="">画面遷移なし (No Action)</option>
+                  <option value="">None (No Action)</option>
                   {allPages.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.title} ({p.slug})
@@ -488,14 +488,14 @@ export function PropertiesInspector({
     <aside className="w-80 border-l border-[#E2E8F0] bg-white flex flex-col h-full overflow-y-auto select-none p-4 space-y-4">
       <div className="pb-3 border-b border-gray-100">
         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-          画面設定 (Screen Settings)
+          Screen Settings
         </span>
         <h3 className="text-sm font-bold text-gray-900 mt-0.5">{page.title}</h3>
       </div>
 
       <div className="space-y-3 text-xs">
         <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-700">画面タイトル (Title)</label>
+          <label className="text-xs font-medium text-gray-700">Screen Title</label>
           <Input
             value={page.title}
             onChange={(e) => onUpdatePage({ title: e.target.value })}
@@ -503,7 +503,7 @@ export function PropertiesInspector({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-700">URLパス (Slug)</label>
+          <label className="text-xs font-medium text-gray-700">URL Path (Slug)</label>
           <Input
             value={page.slug}
             onChange={(e) => onUpdatePage({ slug: e.target.value })}
@@ -511,7 +511,7 @@ export function PropertiesInspector({
           />
         </div>
         <div className="flex items-center justify-between pt-1">
-          <label className="text-xs font-medium text-gray-700">ホーム画面に設定</label>
+          <label className="text-xs font-medium text-gray-700">Set as Home Screen</label>
           <input
             type="checkbox"
             checked={page.isHome}

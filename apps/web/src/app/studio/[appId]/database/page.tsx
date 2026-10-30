@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, useMemo, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   Database,
@@ -309,6 +309,50 @@ export default function DatabaseStudioPage({ params }: PageProps) {
     }
   ];
 
+  const erdTables = useMemo(() => {
+    if (tables && tables.length > 0) {
+      const colorPalette = [
+        { color: "bg-blue-600", headerBg: "bg-blue-50 text-blue-900 border-blue-200" },
+        { color: "bg-rose-500", headerBg: "bg-rose-50 text-rose-900 border-rose-200" },
+        { color: "bg-teal-500", headerBg: "bg-teal-50 text-teal-900 border-teal-200" },
+        { color: "bg-purple-600", headerBg: "bg-purple-50 text-purple-900 border-purple-200" },
+        { color: "bg-indigo-600", headerBg: "bg-indigo-50 text-indigo-900 border-indigo-200" },
+        { color: "bg-amber-500", headerBg: "bg-amber-50 text-amber-900 border-amber-200" },
+        { color: "bg-emerald-500", headerBg: "bg-emerald-50 text-emerald-900 border-emerald-200" },
+      ];
+
+      return tables.map((tbl, index) => {
+        const col = colorPalette[index % colorPalette.length];
+        const row = Math.floor(index / 3);
+        const colIdx = index % 3;
+        const xPos = 80 + colIdx * 340;
+        const yPos = 60 + row * 320;
+
+        return {
+          id: tbl.id,
+          name: tbl.name,
+          color: col.color,
+          headerBg: col.headerBg,
+          isActive: tbl.id === activeTableId,
+          x: xPos,
+          y: yPos,
+          fields: [
+            { name: "id", type: "uuid", isPrimary: true },
+            ...(tbl.fields || []).map((f: any) => ({
+              name: f.name,
+              type: f.field_type || "text",
+              isRequired: f.is_required,
+              isFk: f.name.endsWith("_id"),
+            })),
+            { name: "created_at", type: "timestamptz" },
+            { name: "updated_at", type: "timestamptz" },
+          ],
+        };
+      });
+    }
+    return defaultErdTables;
+  }, [tables, activeTableId]);
+
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden select-none">
       {/* Studio Navigation Sidebar */}
@@ -344,7 +388,7 @@ export default function DatabaseStudioPage({ params }: PageProps) {
                     : "text-gray-500 hover:text-gray-900"
                 }`}
               >
-                ビジュアルER図 (Schema Diagram)
+                Visual ERD Schema
               </button>
               <button
                 onClick={() => setViewMode("records")}
@@ -354,7 +398,7 @@ export default function DatabaseStudioPage({ params }: PageProps) {
                     : "text-gray-500 hover:text-gray-900"
                 }`}
               >
-                スプレッドシート (Records Table)
+                Records Table
               </button>
             </div>
           </div>
@@ -367,7 +411,7 @@ export default function DatabaseStudioPage({ params }: PageProps) {
               className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg gap-1.5"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>テーブル作成 (New Table)</span>
+              <span>Create Table</span>
             </Button>
           </div>
         </div>
@@ -544,7 +588,7 @@ export default function DatabaseStudioPage({ params }: PageProps) {
                   minHeight: "800px",
                 }}
               >
-                {defaultErdTables.map((tbl) => (
+                {erdTables.map((tbl) => (
                   <div
                     key={tbl.name}
                     style={{ position: "absolute", left: tbl.x, top: tbl.y, width: 220 }}
@@ -689,7 +733,7 @@ export default function DatabaseStudioPage({ params }: PageProps) {
       <Modal
         isOpen={isCreateTableOpen}
         onClose={() => setIsCreateTableOpen(false)}
-        title="新規テーブル作成 (Create Table)"
+        title="Create New Table"
         description="Add a new relational table to your application database."
       >
         <div className="space-y-4 pt-2">
@@ -713,10 +757,10 @@ export default function DatabaseStudioPage({ params }: PageProps) {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => setIsCreateTableOpen(false)} className="rounded-lg">
-              キャンセル
+              Cancel
             </Button>
             <Button variant="primary" size="sm" onClick={handleCreateTable} className="bg-blue-600 text-white rounded-lg">
-              作成する (Create)
+              Create Table
             </Button>
           </div>
         </div>
@@ -726,7 +770,7 @@ export default function DatabaseStudioPage({ params }: PageProps) {
       <Modal
         isOpen={isAddFieldOpen}
         onClose={() => setIsAddFieldOpen(false)}
-        title="フィールド追加 (Add Field)"
+        title="Add Field / Column"
         description="Add a new column or property to this table."
       >
         <div className="space-y-4 pt-2">
@@ -762,15 +806,15 @@ export default function DatabaseStudioPage({ params }: PageProps) {
               className="rounded border-gray-300 text-blue-600"
             />
             <label htmlFor="req-f" className="text-xs text-gray-700 font-medium">
-              Required field (必須項目)
+              Required field
             </label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => setIsAddFieldOpen(false)} className="rounded-lg">
-              キャンセル
+              Cancel
             </Button>
             <Button variant="primary" size="sm" onClick={handleAddField} className="bg-blue-600 text-white rounded-lg">
-              追加 (Add)
+              Add Field
             </Button>
           </div>
         </div>

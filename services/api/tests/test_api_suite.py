@@ -7,6 +7,15 @@ from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.core.security import verify_telegram_init_data
 
+async def get_admin_headers(client: AsyncClient) -> dict:
+    login_resp = await client.post("/api/auth/login", json={
+        "email": "admin@miniforge.app",
+        "password": "admin123"
+    })
+    assert login_resp.status_code == 200, f"Login failed: {login_resp.text}"
+    token = login_resp.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
 @pytest.mark.asyncio
 async def test_health_check():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -61,13 +70,14 @@ async def test_auth_and_apps_lifecycle():
 @pytest.mark.asyncio
 async def test_database_studio_operations():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        apps_resp = await client.get("/api/apps")
+        headers = await get_admin_headers(client)
+        apps_resp = await client.get("/api/apps", headers=headers)
         apps = apps_resp.json()
         assert len(apps) > 0
         app_id = apps[0]["id"]
 
         # 1. Create custom table
-        create_tbl_resp = await client.post(f"/api/apps/{app_id}/tables", json={
+        create_tbl_resp = await client.post(f"/api/apps/{app_id}/tables", headers=headers, json={
             "name": "catering_bookings",
             "display_name": "Catering Bookings",
             "description": "Custom customer event requests",
@@ -82,7 +92,7 @@ async def test_database_studio_operations():
         table_id = tbl_data["id"]
 
         # 2. Add record
-        rec_resp = await client.post(f"/api/tables/{table_id}/records", json={
+        rec_resp = await client.post(f"/api/tables/{table_id}/records", headers=headers, json={
             "data": {
                 "client_name": "Sophia Laurent",
                 "guest_count": 80,
@@ -93,7 +103,7 @@ async def test_database_studio_operations():
         record_id = rec_resp.json()["id"]
 
         # 3. Query records
-        list_recs_resp = await client.get(f"/api/tables/{table_id}/records?search=Sophia")
+        list_recs_resp = await client.get(f"/api/tables/{table_id}/records?search=Sophia", headers=headers)
         assert list_recs_resp.status_code == 200
         recs = list_recs_resp.json()
         assert len(recs) == 1
@@ -133,12 +143,13 @@ async def test_telegram_hmac_sha256_verification():
 @pytest.mark.asyncio
 async def test_pos_transaction_and_idempotency():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers = await get_admin_headers(client)
         # Create an app specifically for POS testing
-        app_resp = await client.post("/api/apps", json={"name": "POS Express"})
+        app_resp = await client.post("/api/apps", headers=headers, json={"name": "POS Express"})
         app_id = app_resp.json()["id"]
 
         # Create a test product
-        prod_create_resp = await client.post(f"/api/apps/{app_id}/pos/products", json={
+        prod_create_resp = await client.post(f"/api/apps/{app_id}/pos/products", headers=headers, json={
             "name": "Matcha Croissant",
             "price": 4.50,
             "cost": 1.20,
@@ -161,31 +172,32 @@ async def test_pos_transaction_and_idempotency():
             "payment_method": "cash"
         }
 
-        order_resp = await client.post(f"/api/apps/{app_id}/pos/orders", json=order_payload)
+        order_resp = await client.post(f"/api/apps/{app_id}/pos/orders", headers=headers, json=order_payload)
         assert order_resp.status_code == 200
         order = order_resp.json()
         assert float(order["total"]) > 0
         assert len(order["items"]) == 1
 
         # Check stock deducted: 25 - 3 = 22
-        prods_resp = await client.get(f"/api/apps/{app_id}/pos/products")
+        prods_resp = await client.get(f"/api/apps/{app_id}/pos/products", headers=headers)
         updated_prod = next(p for p in prods_resp.json() if p["id"] == product_id)
         assert updated_prod["stock_quantity"] == initial_stock - 3
 
         # Test Idempotency: Submit EXACT same idempotency key again
-        order_resp_2 = await client.post(f"/api/apps/{app_id}/pos/orders", json=order_payload)
+        order_resp_2 = await client.post(f"/api/apps/{app_id}/pos/orders", headers=headers, json=order_payload)
         assert order_resp_2.status_code == 200
         assert order_resp_2.json()["id"] == order["id"]
 
         # Ensure stock was NOT deducted again
-        prods_resp_2 = await client.get(f"/api/apps/{app_id}/pos/products")
+        prods_resp_2 = await client.get(f"/api/apps/{app_id}/pos/products", headers=headers)
         updated_prod_2 = next(p for p in prods_resp_2.json() if p["id"] == product_id)
         assert updated_prod_2["stock_quantity"] == initial_stock - 3
 
 @pytest.mark.asyncio
 async def test_ai_spec_generation():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        ai_resp = await client.post("/api/ai/generate", json={
+        headers = await get_admin_headers(client)
+        ai_resp = await client.post("/api/ai/generate", headers=headers, json={
             "prompt": "Build a gourmet gelato bar with flavor catalog and order pickup"
         })
         assert ai_resp.status_code == 200
@@ -197,8 +209,9 @@ async def test_ai_spec_generation():
 @pytest.mark.asyncio
 async def test_blueprint_and_templates_instantiation():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers = await get_admin_headers(client)
         # 1. Test Templates Catalog
-        tpl_resp = await client.get("/api/templates")
+        tpl_resp = await client.get("/api/templates", headers=headers)
         assert tpl_resp.status_code == 200
         tpls = tpl_resp.json()
         assert len(tpls) >= 12
@@ -206,13 +219,13 @@ async def test_blueprint_and_templates_instantiation():
         assert restaurant_tpl["category"] == "Food & Hospitality"
 
         # Instantiate from template
-        inst_tpl = await client.post("/api/templates/restaurant/instantiate")
+        inst_tpl = await client.post("/api/templates/restaurant/instantiate", headers=headers)
         assert inst_tpl.status_code == 200
         app_from_tpl = inst_tpl.json()
         assert "Artisan Restaurant" in app_from_tpl["name"]
 
         # 2. Test AI Blueprint Generation
-        bp_resp = await client.post("/api/ai/blueprint", json={
+        bp_resp = await client.post("/api/ai/blueprint", headers=headers, json={
             "prompt": "An artisan bakery and espresso cafe with takeaway ordering and table booking"
         })
         assert bp_resp.status_code == 200
@@ -223,7 +236,7 @@ async def test_blueprint_and_templates_instantiation():
         assert len(bp["clarifying_questions"]) >= 1
 
         # 3. Instantiate App from Blueprint
-        inst_bp = await client.post("/api/ai/blueprint/instantiate", json={
+        inst_bp = await client.post("/api/ai/blueprint/instantiate", headers=headers, json={
             "blueprint": bp,
             "include_sample_data": True
         })

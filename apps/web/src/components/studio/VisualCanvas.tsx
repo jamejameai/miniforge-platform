@@ -395,7 +395,7 @@ export function VisualCanvas({
                 <div className="flex-1 p-4 space-y-3.5 overflow-y-auto">
                   {pg.components.length === 0 ? (
                     <div className="py-20 text-center text-xs text-gray-400 border border-dashed border-gray-200 rounded-2xl p-4">
-                      <p>画面が空です</p>
+                      <p className="font-semibold text-gray-600">Screen is empty</p>
                       <p className="text-[11px] mt-1 text-gray-400">Click components on the left to add.</p>
                     </div>
                   ) : (
@@ -466,7 +466,7 @@ export function VisualCanvas({
             onClick={() => setViewMode(viewMode === "flow" ? "single" : "flow")}
             className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
           >
-            {viewMode === "flow" ? "フロー表示 (Flow)" : "単一画面 (Single)"}
+            {viewMode === "flow" ? "Flow View" : "Single Screen"}
           </button>
         </div>
       )}

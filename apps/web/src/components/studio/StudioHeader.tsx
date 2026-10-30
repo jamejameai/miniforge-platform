@@ -116,12 +116,12 @@ export function StudioHeader({
             C
           </Link>
 
-          {/* Status Badge: 公開中 | Proプラン */}
+          {/* Status Badge: Published | Pro Plan */}
           <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{isPublished ? `公開中 (v${versionNumber})` : "下書き (Draft)"}</span>
+            <span>{isPublished ? `Published (v${versionNumber})` : "Draft"}</span>
             <span className="text-emerald-300">|</span>
-            <span>Proプラン</span>
+            <span>Pro Plan</span>
           </span>
 
           {/* App Title */}
@@ -135,11 +135,11 @@ export function StudioHeader({
             className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 hover:text-gray-900 border border-gray-200 rounded-lg transition-colors"
           >
             <Database className="w-3.5 h-3.5 text-blue-600" />
-            <span>データ管理</span>
+            <span>Database</span>
           </Link>
         </div>
 
-        {/* Center: Pill Capsule Toggle (キャンバス Canvas | データベース Database) */}
+        {/* Center: Pill Capsule Toggle (Canvas | Database) */}
         <div className="flex items-center bg-[#F1F5F9] p-1 rounded-full border border-[#E2E8F0]">
           <button
             onClick={() => onTopTabChange && onTopTabChange("canvas")}
@@ -149,7 +149,7 @@ export function StudioHeader({
                 : "text-gray-500 hover:text-gray-900"
             }`}
           >
-            キャンバス
+            Canvas
           </button>
           <button
             onClick={() => onTopTabChange && onTopTabChange("database")}
@@ -159,7 +159,7 @@ export function StudioHeader({
                 : "text-gray-500 hover:text-gray-900"
             }`}
           >
-            データベース
+            Database
           </button>
         </div>
 
@@ -180,16 +180,17 @@ export function StudioHeader({
                   : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
               }`}
             >
-              {isPreview ? "編集に戻る" : "プレビュー"}
+              {isPreview ? "Back to Edit" : "Preview"}
             </button>
           )}
 
-          {/* Publish Button (Vibrant Blue Pill - 公開) */}
+          {/* Publish Button (Vibrant Blue Pill) */}
           <button
             onClick={() => setIsPublishModalOpen(true)}
+            title="Publish"
             className="px-5 py-1.5 rounded-full text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs active:scale-95 transition-all"
           >
-            公開
+            Publish
           </button>
 
           {/* User Avatar Circle */}
@@ -203,7 +204,7 @@ export function StudioHeader({
       <Modal
         isOpen={isPublishModalOpen}
         onClose={() => !isPublishing && setIsPublishModalOpen(false)}
-        title="公開 — Publish Production Snapshot"
+        title="Publish Production Snapshot"
         description="Creates an immutable snapshot of your application. All changes will be immediately live on Telegram and Standalone Web."
       >
         <div className="space-y-4 pt-2">
@@ -211,7 +212,7 @@ export function StudioHeader({
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-2">
               <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
               <h4 className="text-sm font-bold text-emerald-900">
-                バージョン {publishSuccess} が公開されました！
+                Version {publishSuccess} is now Live!
               </h4>
               <p className="text-xs text-emerald-700">
                 Your application is live on Telegram Mini App and Web.
@@ -221,7 +222,7 @@ export function StudioHeader({
             <>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-900">
-                  Release Notes / 変更ログ
+                  Release Notes
                 </label>
                 <Input
                   value={changelog}
@@ -250,7 +251,7 @@ export function StudioHeader({
                   disabled={isPublishing}
                   className="rounded-xl"
                 >
-                  キャンセル
+                  Cancel
                 </Button>
                 <Button
                   variant="primary"
@@ -259,7 +260,7 @@ export function StudioHeader({
                   disabled={isPublishing}
                   className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
                 >
-                  {isPublishing ? "公開中..." : "公開する (Publish)"}
+                  {isPublishing ? "Publishing..." : "Publish Application"}
                 </Button>
               </div>
             </>

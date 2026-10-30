@@ -14,13 +14,8 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ) -> User:
     if not credentials:
-        # Fallback to dev/sandbox user if running in development mode without header
-        # To facilitate immediate local development testing
-        stmt = select(User).limit(1)
-        res = await db.execute(stmt)
-        dev_user = res.scalar_one_or_none()
-        if dev_user:
-            return dev_user
+        # Every builder/admin endpoint requires a valid Bearer token.
+        # Public runtime traffic goes through app/api/public.py instead.
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required."

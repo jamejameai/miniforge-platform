@@ -588,7 +588,7 @@ export default function AppStudioPage({ params }: PageProps) {
             onOpenAddModal={() => setLeftTab("palette")}
           />
 
-          {/* Right Inspector (Matching Image 1: エレメント | スタイル | アクション) */}
+          {/* Right Inspector: Elements | Style | Actions */}
           {!isPreview && (
             <PropertiesInspector
               page={activePage}
@@ -616,7 +616,7 @@ export default function AppStudioPage({ params }: PageProps) {
         onTogglePreview={() => setIsPreview(!isPreview)}
         onSave={handleSave}
         onPublish={() => {
-          const publishBtn = document.querySelector('button[title="公開"]') as HTMLButtonElement;
+          const publishBtn = document.querySelector('button[title="Publish"]') as HTMLButtonElement;
           if (publishBtn) publishBtn.click();
         }}
       />
