@@ -738,3 +738,4 @@ TEMPLATES_CATALOG: List[Dict[str, Any]] = [
         "starter_products": []
     }
 ]
+

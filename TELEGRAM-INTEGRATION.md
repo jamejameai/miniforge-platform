@@ -46,3 +46,4 @@ The runtime at `/tg/[appSlug]` integrates with `window.Telegram.WebApp`:
 - **`MainButton`**: Displays cart total (e.g. `"Pay $24.50"`) and handles checkout dispatch.
 - **`HapticFeedback`**: Triggers native phone haptics (`impactOccurred("medium")`, `notificationOccurred("success")`).
 - **`ThemeParams`**: Automatically synchronizes Telegram light/dark mode color variables into the runtime CSS root.
+

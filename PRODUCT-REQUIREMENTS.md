@@ -48,3 +48,4 @@ Users begin from one of three starting doors:
 ### Stage 6: Build & Learn Experience
 - **Beginner Mode**: Guided tooltips, best-practice design tips, relational data explanations, and workflow advice.
 - **Pro Mode**: High-density engineering interface with raw JSON inspect, event triggers, and developer telemetry.
+

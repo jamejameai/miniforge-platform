@@ -125,3 +125,4 @@ async def instantiate_template(
     await db.commit()
     await db.refresh(app)
     return app
+

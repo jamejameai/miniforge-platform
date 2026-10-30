@@ -60,3 +60,4 @@ Base URL: `http://localhost:8000/api`
 - `PUT /workflows/{workflow_id}`: Update or toggle active/paused status.
 - `POST /workflows/{workflow_id}/run-test`: Simulate execution with test payload and return execution telemetry.
 - `GET /workflows/{workflow_id}/executions`: Audit trail of workflow runs.
+

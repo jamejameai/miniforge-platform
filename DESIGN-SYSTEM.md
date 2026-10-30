@@ -47,3 +47,4 @@ The design language is strictly restrained, professional, and content-first.
   - Tablet: `w-[768px]`, min-height `720px`, rounded-xl (`12px`).
   - Desktop: `max-w-5xl`, min-height `720px`, rounded-xl (`12px`).
 - **Toasts**: Dark surface `#171717`, 4000ms auto-dismiss, bottom-right stack.
+

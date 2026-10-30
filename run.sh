@@ -12,6 +12,20 @@ echo "=================================================="
 echo "  🚀 Starting MiniForge Platform..."
 echo "=================================================="
 
+# 0. Free ports 8000 and 3000 if already occupied
+echo "🔍 Checking port availability..."
+if lsof -ti :8000 >/dev/null 2>&1; then
+  echo "⚠️  Port 8000 in use. Freeing..."
+  lsof -ti :8000 | xargs kill -9 2>/dev/null || true
+  sleep 1
+fi
+
+if lsof -ti :3000 >/dev/null 2>&1; then
+  echo "⚠️  Port 3000 in use. Freeing..."
+  lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+  sleep 1
+fi
+
 # 1. Setup Backend Environment if needed
 if [ ! -d "services/api/.venv" ]; then
   echo "📦 Initializing Python virtual environment..."
@@ -50,7 +64,7 @@ sleep 2
 # 5. Launch Frontend Studio & Runtime on Port 3000
 echo "🎨 Starting Next.js Studio & Runtime on http://localhost:3000 ..."
 (
-  pnpm --filter @miniforce/web dev --port 3000
+  pnpm --filter @miniforce/web dev
 ) &
 WEB_PID=$!
 

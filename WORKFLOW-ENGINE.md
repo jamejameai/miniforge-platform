@@ -58,3 +58,4 @@ Every workflow execution records an immutable `WorkflowExecution` row:
 - `duration_ms`: Execution latency (typically 1ms - 8ms)
 - `logs`: Array of line-by-line step execution statements
 - `error_message`: Stack trace or failure description if encountered
+
