@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: miniforge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: miniforge
+      POSTGRES_USER: miniforge_user
+      POSTGRES_PASSWORD: miniforge_secure_password_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miniforge_user -d miniforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: miniforge-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../../services/api
+      dockerfile: Dockerfile
+    container_name: miniforge-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      PORT: 8000
+      SECRET_KEY: miniforge-production-jwt-secret-replace-with-64char-hex
+      ENCRYPTION_MASTER_KEY: k9Z7QpLm4YxR2wTv8Bn1Jc3Vf5Gs0He6
+      DATABASE_URL: postgresql+asyncpg://miniforge_user:miniforge_secure_password_2026@postgres:5432/miniforge
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ../../
+      dockerfile: apps/web/Dockerfile
+    container_name: miniforge-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:8000
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
+  redis_data:
