@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "dev": "./run.sh",
+    "start": "./run.sh",
     "dev:web": "pnpm --filter @miniforce/web dev",
     "build:web": "pnpm --filter @miniforce/web build",
     "test:api": "cd services/api && PYTHONPATH=. .venv/bin/pytest tests/ -v",

@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -e
+
+# ==========================================
+# MiniForge — Unified Single-Command Runner
+# ==========================================
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
+
+echo "=================================================="
+echo "  🚀 Starting MiniForge Platform..."
+echo "=================================================="
+
+# 1. Setup Backend Environment if needed
+if [ ! -d "services/api/.venv" ]; then
+  echo "📦 Initializing Python virtual environment..."
+  cd services/api
+  uv venv
+  uv pip install -r requirements.txt
+  cd "$ROOT_DIR"
+fi
+
+# 2. Setup Node dependencies if needed
+if [ ! -d "node_modules" ] || [ ! -d "apps/web/node_modules" ]; then
+  echo "📦 Installing Node dependencies..."
+  pnpm install
+fi
+
+# Cleanup on exit (Ctrl+C)
+cleanup() {
+  echo ""
+  echo "🛑 Shutting down MiniForge services..."
+  kill $(jobs -p) 2>/dev/null || true
+  exit 0
+}
+trap cleanup SIGINT SIGTERM EXIT
+
+# 3. Launch Backend API on Port 8000
+echo "⚡ Starting FastAPI Backend on http://localhost:8000 ..."
+(
+  cd services/api
+  PYTHONPATH=. .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+) &
+API_PID=$!
+
+# 4. Wait briefly for API to initialize
+sleep 2
+
+# 5. Launch Frontend Studio & Runtime on Port 3000
+echo "🎨 Starting Next.js Studio & Runtime on http://localhost:3000 ..."
+(
+  pnpm --filter @miniforce/web dev --port 3000
+) &
+WEB_PID=$!
+
+echo ""
+echo "=================================================="
+echo "  ✨ MiniForge is running successfully!"
+echo "=================================================="
+echo "  👉 Studio & Workspace:   http://localhost:3000"
+echo "  👉 Standalone App:       http://localhost:3000/r/artisan-roast"
+echo "  👉 Telegram Mini App:    http://localhost:3000/tg/artisan-roast"
+echo "  👉 Interactive API Docs: http://localhost:8000/docs"
+echo "=================================================="
+echo "  Press Ctrl+C to stop all services."
+echo ""
+
+# Wait for both background processes
+wait
