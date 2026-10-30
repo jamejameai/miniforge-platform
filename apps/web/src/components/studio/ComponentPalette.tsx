@@ -120,3 +120,4 @@ export function ComponentPalette({ onAddComponent }: ComponentPaletteProps) {
     </div>
   );
 }
+

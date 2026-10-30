@@ -33,3 +33,4 @@ COPY --from=builder /app/apps/web/node_modules ./apps/web/node_modules
 EXPOSE 3000
 
 CMD ["pnpm", "--filter", "@miniforce/web", "start"]
+

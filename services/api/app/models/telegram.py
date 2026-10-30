@@ -27,3 +27,4 @@ class TelegramBot(Base):
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
     app = relationship("App", back_populates="bot")
+

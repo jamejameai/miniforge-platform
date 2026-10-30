@@ -21,9 +21,9 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     # Create tenant
     tenant_slug = re.sub(r"[^a-z0-9]+", "-", req.tenant_name.lower()).strip("-")
     # Verify unique slug
-    slug_stmt = select(Tenant).where(Tenant.slug == tenant_slug)
+    slug_stmt = select(Tenant.id).where(Tenant.slug == tenant_slug).limit(1)
     slug_res = await db.execute(slug_stmt)
-    if slug_res.scalar_one_or_none():
+    if slug_res.scalar():
         import uuid
         tenant_slug = f"{tenant_slug}-{uuid.uuid4().hex[:4]}"
 
@@ -65,3 +65,4 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+

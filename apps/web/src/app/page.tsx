@@ -20,12 +20,14 @@ import {
   Clock
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 
 export default function WorkspaceDashboard() {
+  const { showToast } = useToast();
   const [apps, setApps] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -59,9 +61,10 @@ export default function WorkspaceDashboard() {
       setIsCreateOpen(false);
       setNewAppName("");
       setNewAppDesc("");
+      showToast(`Created application "${app.name}"`, "success");
       loadApps();
     } catch (err: any) {
-      alert(err.message || "Failed to create app.");
+      showToast(err.message || "Failed to create app.", "error");
     } finally {
       setIsCreating(false);
     }
@@ -71,10 +74,11 @@ export default function WorkspaceDashboard() {
     e.preventDefault();
     e.stopPropagation();
     try {
-      await api.duplicateApp(appId);
+      const dup = await api.duplicateApp(appId);
+      showToast(`Duplicated as "${dup.name}"`, "success");
       loadApps();
-    } catch (err) {
-      alert("Failed to duplicate app.");
+    } catch (err: any) {
+      showToast(err.message || "Failed to duplicate app.", "error");
     }
   };
 
@@ -84,9 +88,10 @@ export default function WorkspaceDashboard() {
     if (!confirm(`Are you sure you want to delete "${appName}"? This cannot be undone.`)) return;
     try {
       await api.deleteApp(appId);
+      showToast(`Deleted application "${appName}"`, "info");
       loadApps();
-    } catch (err) {
-      alert("Failed to delete app.");
+    } catch (err: any) {
+      showToast(err.message || "Failed to delete app.", "error");
     }
   };
 
@@ -377,3 +382,4 @@ export default function WorkspaceDashboard() {
     </div>
   );
 }
+

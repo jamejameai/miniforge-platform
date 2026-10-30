@@ -7,6 +7,7 @@ import {
   Table as TableIcon,
   Search,
   Download,
+  Upload,
   Trash2,
   Edit2,
   FileSpreadsheet,
@@ -14,6 +15,7 @@ import {
   SlidersHorizontal
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import { StudioNav } from "@/components/studio/StudioNav";
 import { StudioHeader } from "@/components/studio/StudioHeader";
 import { Button } from "@/components/ui/button";
@@ -47,8 +49,50 @@ export default function DatabaseStudioPage({ params }: PageProps) {
   const [newFieldType, setNewFieldType] = useState("text");
   const [newFieldRequired, setNewFieldRequired] = useState(false);
 
+  // Add Record Modal
   const [isAddRecordOpen, setIsAddRecordOpen] = useState(false);
   const [recordFormData, setRecordFormData] = useState<Record<string, any>>({});
+
+  const { showToast } = useToast();
+  const [isImportCsvOpen, setIsImportCsvOpen] = useState(false);
+  const [csvText, setCsvText] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleImportCSV = async () => {
+    if (!activeTableId || !csvText.trim()) return;
+    try {
+      setIsImporting(true);
+      const lines = csvText.trim().split("\n");
+      if (lines.length < 2) {
+        showToast("CSV must contain at least a header row and one data row.", "error");
+        return;
+      }
+      const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+      const recordsToImport = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const values = lines[i].split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+        const rowData: Record<string, any> = {};
+        headers.forEach((h, idx) => {
+          if (values[idx] !== undefined) {
+            rowData[h] = values[idx];
+          }
+        });
+        recordsToImport.push(rowData);
+      }
+
+      const imported = await api.bulkImportRecords(activeTableId, recordsToImport);
+      setRecords([...imported, ...records]);
+      setIsImportCsvOpen(false);
+      setCsvText("");
+      showToast(`Successfully imported ${imported.length} records!`, "success");
+    } catch (err: any) {
+      showToast(err.message || "Failed to import CSV.", "error");
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -102,8 +146,9 @@ export default function DatabaseStudioPage({ params }: PageProps) {
       setIsCreateTableOpen(false);
       setNewTableName("");
       setNewTableLabel("");
+      showToast(`Created table "${created.display_name}"`, "success");
     } catch (err: any) {
-      alert(err.message || "Failed to create table.");
+      showToast(err.message || "Failed to create table.", "error");
     }
   };
 
@@ -124,8 +169,9 @@ export default function DatabaseStudioPage({ params }: PageProps) {
       setIsAddFieldOpen(false);
       setNewFieldName("");
       setNewFieldLabel("");
+      showToast(`Added field "${field.label}"`, "success");
     } catch (err: any) {
-      alert(err.message || "Failed to add field.");
+      showToast(err.message || "Failed to add field.", "error");
     }
   };
 
@@ -136,8 +182,9 @@ export default function DatabaseStudioPage({ params }: PageProps) {
       setRecords([rec, ...records]);
       setIsAddRecordOpen(false);
       setRecordFormData({});
+      showToast("Record successfully saved", "success");
     } catch (err: any) {
-      alert(err.message || "Failed to save record.");
+      showToast(err.message || "Failed to save record.", "error");
     }
   };
 
@@ -146,8 +193,9 @@ export default function DatabaseStudioPage({ params }: PageProps) {
     try {
       await api.deleteRecord(recordId);
       setRecords(records.filter((r) => r.id !== recordId));
-    } catch (err) {
-      alert("Failed to delete record.");
+      showToast("Record deleted", "info");
+    } catch (err: any) {
+      showToast(err.message || "Failed to delete record.", "error");
     }
   };
 
@@ -285,6 +333,16 @@ export default function DatabaseStudioPage({ params }: PageProps) {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setIsImportCsvOpen(true)}
+                      className="text-xs gap-1"
+                    >
+                      <Upload className="w-3 h-3" />
+                      <span>Import CSV</span>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handleExportCSV}
                       disabled={records.length === 0}
                       className="text-xs gap-1"
@@ -383,6 +441,55 @@ export default function DatabaseStudioPage({ params }: PageProps) {
           </div>
         </div>
       </div>
+
+      {/* Import CSV Modal */}
+      <Modal
+        isOpen={isImportCsvOpen}
+        onClose={() => setIsImportCsvOpen(false)}
+        title="Import Records via CSV"
+        description={`Paste comma-separated values matching fields in '${activeTable?.display_name}'.`}
+      >
+        <div className="space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-medium text-[#171717]">CSV Data (Header + Rows)</label>
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeTable?.fields) {
+                    const sampleHeader = activeTable.fields.map((f: any) => f.name).join(",");
+                    const sampleRow = activeTable.fields.map((f: any) => f.name === "title" ? "Sample Item" : "Active").join(",");
+                    setCsvText(`${sampleHeader}\n${sampleRow}`);
+                  }
+                }}
+                className="text-[11px] text-[#D4146E] hover:underline"
+              >
+                Insert sample template
+              </button>
+            </div>
+            <textarea
+              rows={6}
+              value={csvText}
+              onChange={(e) => setCsvText(e.target.value)}
+              placeholder="name,email,party_size&#10;Alice,alice@example.com,4&#10;Bob,bob@example.com,2"
+              className="w-full p-2.5 text-xs font-mono bg-[#F7F7F8] border border-[#E8E8EA] rounded-md focus:border-[#D4146E] focus:outline-none"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setIsImportCsvOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleImportCSV}
+              disabled={isImporting || !csvText.trim()}
+            >
+              {isImporting ? "Importing Records..." : "Confirm & Import"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Create Table Modal */}
       <Modal
@@ -548,3 +655,4 @@ export default function DatabaseStudioPage({ params }: PageProps) {
     </div>
   );
 }
+

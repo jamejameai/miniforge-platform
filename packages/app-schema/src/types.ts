@@ -152,3 +152,4 @@ export const DEFAULT_THEME: ThemeConfig = {
   fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   borderRadius: '8px',
 };
+

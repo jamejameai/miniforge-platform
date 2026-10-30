@@ -135,3 +135,4 @@ async def list_workflow_executions(
     ).order_by(desc(WorkflowExecution.created_at)).limit(limit)
     res = await db.execute(stmt)
     return res.scalars().all()
+

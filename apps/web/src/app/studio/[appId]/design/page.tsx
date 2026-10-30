@@ -13,6 +13,7 @@ import { StudioNav } from "@/components/studio/StudioNav";
 import { StudioHeader } from "@/components/studio/StudioHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 
 interface PageProps {
   params: Promise<{ appId: string }>;
@@ -21,6 +22,7 @@ interface PageProps {
 export default function DesignStudioPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const appId = resolvedParams.appId;
+  const { showToast } = useToast();
 
   const [appData, setAppData] = useState<any>(null);
   const [theme, setTheme] = useState({
@@ -59,9 +61,9 @@ export default function DesignStudioPage({ params }: PageProps) {
       };
       await api.updateApp(appId, { draft_spec: updatedSpec });
       setAppData({ ...appData, draft_spec: updatedSpec });
-      alert("Design system tokens saved!");
-    } catch (err) {
-      alert("Failed to save theme.");
+      showToast("Design system tokens saved successfully!", "success");
+    } catch (err: any) {
+      showToast(err.message || "Failed to save theme.", "error");
     } finally {
       setIsSaving(false);
     }
@@ -245,3 +247,4 @@ export default function DesignStudioPage({ params }: PageProps) {
     </div>
   );
 }
+

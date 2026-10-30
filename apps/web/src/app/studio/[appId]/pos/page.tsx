@@ -11,9 +11,14 @@ import {
   Receipt,
   Tag,
   Package,
-  Layers
+  Layers,
+  CreditCard,
+  Banknote,
+  Send,
+  Printer
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import { StudioNav } from "@/components/studio/StudioNav";
 import { StudioHeader } from "@/components/studio/StudioHeader";
 import { Button } from "@/components/ui/button";
@@ -35,8 +40,11 @@ export default function POSStudioPage({ params }: PageProps) {
   const [activeTab, setActiveTab] = useState<"register" | "catalog" | "orders">("register");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<{ product: any; quantity: number }[]>([]);
-  const [customerName, setCustomerName] = useState("Walk-in Customer");
-  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const { showToast } = useToast();
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "telegram_pay">("cash");
+  const [discountAmount, setDiscountAmount] = useState<string>("0");
+  const [completedOrder, setCompletedOrder] = useState<any>(null);
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
   // New Product Modal
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
@@ -68,7 +76,7 @@ export default function POSStudioPage({ params }: PageProps) {
     const existing = cart.find((i) => i.product.id === product.id);
     if (existing) {
       if (existing.quantity >= product.stock_quantity) {
-        alert("Cannot add more: Max available stock reached.");
+        showToast("Cannot add more: Max available stock reached.", "info");
         return;
       }
       setCart(
@@ -78,7 +86,7 @@ export default function POSStudioPage({ params }: PageProps) {
       );
     } else {
       if (product.stock_quantity < 1) {
-        alert("This item is currently out of stock.");
+        showToast("This item is currently out of stock.", "info");
         return;
       }
       setCart([...cart, { product, quantity: 1 }]);
@@ -99,11 +107,15 @@ export default function POSStudioPage({ params }: PageProps) {
     );
   };
 
+  const [customerName, setCustomerName] = useState("Walk-in Customer");
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+
   const calculateSubtotal = () =>
     cart.reduce((sum, item) => sum + parseFloat(item.product.price) * item.quantity, 0);
 
-  const calculateTax = () => calculateSubtotal() * 0.05;
-  const calculateTotal = () => calculateSubtotal() + calculateTax();
+  const discountVal = parseFloat(discountAmount) || 0;
+  const calculateTax = () => Math.max(0, calculateSubtotal() - discountVal) * 0.05;
+  const calculateTotal = () => Math.max(0, calculateSubtotal() - discountVal + calculateTax());
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
@@ -113,7 +125,7 @@ export default function POSStudioPage({ params }: PageProps) {
       const orderPayload = {
         idempotency_key: idempotencyKey,
         customer_name: customerName,
-        payment_method: "cash",
+        payment_method: paymentMethod,
         items: cart.map((i) => ({
           product_id: i.product.id,
           quantity: i.quantity,
@@ -121,11 +133,14 @@ export default function POSStudioPage({ params }: PageProps) {
       };
 
       const newOrder = await api.placeOrder(appId, orderPayload);
-      alert(`Order #${newOrder.order_number} completed successfully! Total: $${parseFloat(newOrder.total).toFixed(2)}`);
+      setCompletedOrder(newOrder);
+      setIsReceiptOpen(true);
       setCart([]);
+      setDiscountAmount("0");
+      showToast(`Order #${newOrder.order_number} completed! Total: $${parseFloat(newOrder.total).toFixed(2)}`, "success");
       loadPOSData();
     } catch (err: any) {
-      alert(err.message || "Checkout failed.");
+      showToast(err.message || "Checkout failed.", "error");
     } finally {
       setIsSubmittingOrder(false);
     }
@@ -145,9 +160,10 @@ export default function POSStudioPage({ params }: PageProps) {
       setIsAddProductOpen(false);
       setNewProdName("");
       setNewProdSku("");
+      showToast("Product successfully created", "success");
       loadPOSData();
     } catch (err: any) {
-      alert(err.message || "Failed to create product.");
+      showToast(err.message || "Failed to create product.", "error");
     }
   };
 
@@ -343,10 +359,64 @@ export default function POSStudioPage({ params }: PageProps) {
 
               {/* Order Summary & Charge Button */}
               <div className="p-4 border-t border-[#E8E8EA] bg-[#F7F7F8] space-y-3">
+                {/* Payment Method Selector */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#777777]">Payment Method</span>
+                  <div className="grid grid-cols-3 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod("cash")}
+                      className={`p-1.5 rounded text-[11px] font-semibold flex items-center justify-center gap-1 border transition-colors ${
+                        paymentMethod === "cash"
+                          ? "bg-[#171717] text-white border-[#171717]"
+                          : "bg-white text-[#777777] border-[#E8E8EA] hover:text-[#171717]"
+                      }`}
+                    >
+                      <Banknote className="w-3 h-3" />
+                      <span>Cash</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod("card")}
+                      className={`p-1.5 rounded text-[11px] font-semibold flex items-center justify-center gap-1 border transition-colors ${
+                        paymentMethod === "card"
+                          ? "bg-[#171717] text-white border-[#171717]"
+                          : "bg-white text-[#777777] border-[#E8E8EA] hover:text-[#171717]"
+                      }`}
+                    >
+                      <CreditCard className="w-3 h-3" />
+                      <span>Card</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod("telegram_pay")}
+                      className={`p-1.5 rounded text-[11px] font-semibold flex items-center justify-center gap-1 border transition-colors ${
+                        paymentMethod === "telegram_pay"
+                          ? "bg-sky-600 text-white border-sky-600"
+                          : "bg-white text-[#777777] border-[#E8E8EA] hover:text-[#171717]"
+                      }`}
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>TG Pay</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-1 text-xs">
                   <div className="flex justify-between text-[#777777]">
                     <span>Subtotal</span>
                     <span>${calculateSubtotal().toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[#777777]">
+                    <span>Discount ($)</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      value={discountAmount}
+                      onChange={(e) => setDiscountAmount(e.target.value)}
+                      className="w-16 h-6 px-1.5 text-right text-xs bg-white border border-[#E8E8EA] rounded"
+                    />
                   </div>
                   <div className="flex justify-between text-[#777777]">
                     <span>Tax (5%)</span>
@@ -365,7 +435,7 @@ export default function POSStudioPage({ params }: PageProps) {
                   onClick={handleCheckout}
                   className="w-full font-bold text-xs shadow-md"
                 >
-                  {isSubmittingOrder ? "Processing..." : `Complete Order ($${calculateTotal().toFixed(2)})`}
+                  {isSubmittingOrder ? "Processing Transaction..." : `Charge $${calculateTotal().toFixed(2)}`}
                 </Button>
               </div>
             </div>
@@ -451,6 +521,69 @@ export default function POSStudioPage({ params }: PageProps) {
         )}
       </div>
 
+      {/* Completed Receipt Modal */}
+      <Modal
+        isOpen={isReceiptOpen}
+        onClose={() => setIsReceiptOpen(false)}
+        title="Transaction Receipt"
+        description="Official sales transaction ledger record."
+      >
+        {completedOrder && (
+          <div className="space-y-4">
+            <div className="p-4 bg-[#F7F7F8] rounded-xl border border-[#E8E8EA] font-mono text-xs space-y-2">
+              <div className="flex justify-between border-b border-[#E8E8EA] pb-2">
+                <span className="font-bold text-[#171717]">{appData.name}</span>
+                <span className="text-[#D4146E] font-bold">PAID</span>
+              </div>
+              <div className="flex justify-between text-[#777777]">
+                <span>Order No:</span>
+                <span className="text-[#171717]">{completedOrder.order_number}</span>
+              </div>
+              <div className="flex justify-between text-[#777777]">
+                <span>Customer:</span>
+                <span className="text-[#171717]">{completedOrder.customer_name}</span>
+              </div>
+              <div className="flex justify-between text-[#777777]">
+                <span>Payment Method:</span>
+                <span className="text-[#171717] uppercase">{completedOrder.payment_method}</span>
+              </div>
+              <div className="border-t border-dashed border-[#E8E8EA] pt-2 space-y-1">
+                {completedOrder.items?.map((it: any, i: number) => (
+                  <div key={i} className="flex justify-between text-[11px]">
+                    <span>{it.quantity}x {it.product_name}</span>
+                    <span>${parseFloat(it.total_price).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-[#E8E8EA] pt-2 flex justify-between font-bold text-sm text-[#171717]">
+                <span>Total Paid</span>
+                <span className="text-[#D4146E]">${parseFloat(completedOrder.total).toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.print()}
+                className="text-xs gap-1"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Receipt</span>
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsReceiptOpen(false)}
+                className="text-xs"
+              >
+                New Transaction
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Add Product Modal */}
       <Modal
         isOpen={isAddProductOpen}
@@ -525,3 +658,4 @@ export default function POSStudioPage({ params }: PageProps) {
     </div>
   );
 }
+

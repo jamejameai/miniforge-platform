@@ -131,3 +131,4 @@ export function StudioNav({ appId, appName, appSlug }: StudioNavProps) {
     </aside>
   );
 }
+

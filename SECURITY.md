@@ -47,3 +47,4 @@ MiniForge validates Telegram client identity strictly according to official Tele
    Bot tokens are never transmitted to client browsers, emitted in JSON schemas, or printed in logs.
 3. **Audit Trails**:
    All sensitive actions (publishing, credential changes, data export) are recorded in an immutable audit ledger.
+

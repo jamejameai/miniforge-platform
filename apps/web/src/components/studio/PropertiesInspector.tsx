@@ -250,3 +250,4 @@ export function PropertiesInspector({
     </aside>
   );
 }
+

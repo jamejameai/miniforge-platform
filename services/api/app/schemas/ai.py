@@ -14,3 +14,4 @@ class AIGenerateResponse(BaseModel):
     summary_of_changes: List[str]
     suggested_tables: List[Dict[str, Any]]
     suggested_workflows: List[Dict[str, Any]]
+

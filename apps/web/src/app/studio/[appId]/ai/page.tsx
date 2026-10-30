@@ -18,6 +18,7 @@ import { StudioNav } from "@/components/studio/StudioNav";
 import { StudioHeader } from "@/components/studio/StudioHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/toast";
 
 interface PageProps {
   params: Promise<{ appId: string }>;
@@ -26,6 +27,7 @@ interface PageProps {
 export default function AIStudioPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const appId = resolvedParams.appId;
+  const { showToast } = useToast();
 
   const [appData, setAppData] = useState<any>(null);
   const [prompt, setPrompt] = useState("");
@@ -48,7 +50,7 @@ export default function AIStudioPage({ params }: PageProps) {
 
   const handleGenerate = async () => {
     if (!prompt.trim() || prompt.length < 5) {
-      alert("Please enter a more descriptive prompt for your application.");
+      showToast("Please enter a more descriptive prompt for your application.", "info");
       return;
     }
     try {
@@ -57,8 +59,9 @@ export default function AIStudioPage({ params }: PageProps) {
       setIsApplied(false);
       const res = await api.generateAppSpec(prompt.trim());
       setAiResult(res);
+      showToast("AI Application Specification successfully synthesized!", "success");
     } catch (err: any) {
-      alert(err.message || "AI generation failed.");
+      showToast(err.message || "AI generation failed.", "error");
     } finally {
       setIsGenerating(false);
     }
@@ -70,9 +73,9 @@ export default function AIStudioPage({ params }: PageProps) {
       setIsApplying(true);
       await api.applyAISpec(appId, aiResult.suggested_spec);
       setIsApplied(true);
-      alert("AI application specification applied successfully to your application draft!");
+      showToast("AI application specification applied successfully to your draft!", "success");
     } catch (err: any) {
-      alert(err.message || "Failed to apply AI specification.");
+      showToast(err.message || "Failed to apply AI specification.", "error");
     } finally {
       setIsApplying(false);
     }
@@ -264,3 +267,4 @@ export default function AIStudioPage({ params }: PageProps) {
     </div>
   );
 }
+

@@ -20,6 +20,7 @@ import { StudioHeader } from "@/components/studio/StudioHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 
 interface PageProps {
   params: Promise<{ appId: string }>;
@@ -28,6 +29,7 @@ interface PageProps {
 export default function BotStudioPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const appId = resolvedParams.appId;
+  const { showToast } = useToast();
 
   const [appData, setAppData] = useState<any>(null);
   const [botStatus, setBotStatus] = useState<any>(null);
@@ -62,9 +64,9 @@ export default function BotStudioPage({ params }: PageProps) {
       const status = await api.connectBot(appId, botToken.trim());
       setBotStatus(status);
       setBotToken("");
-      alert(`Bot @${status.bot_username} successfully connected!`);
+      showToast(`Bot @${status.bot_username} successfully connected!`, "success");
     } catch (err: any) {
-      alert(err.message || "Failed to connect Telegram Bot.");
+      showToast(err.message || "Failed to connect Telegram Bot.", "error");
     } finally {
       setIsConnecting(false);
     }
@@ -77,9 +79,9 @@ export default function BotStudioPage({ params }: PageProps) {
       const miniAppUrl = `${window.location.origin}/tg/${appData.slug}`;
       await api.configureMenuButton(appId, miniAppUrl);
       setMenuConfigured(true);
-      alert("Telegram Mini App Menu Button successfully set up in your bot!");
+      showToast("Telegram Mini App Menu Button successfully set up in your bot!", "success");
     } catch (err: any) {
-      alert(err.message || "Failed to configure menu button.");
+      showToast(err.message || "Failed to configure menu button.", "error");
     } finally {
       setIsSettingMenu(false);
     }
@@ -89,9 +91,10 @@ export default function BotStudioPage({ params }: PageProps) {
     if (!confirm("Are you sure you want to disconnect this Telegram bot?")) return;
     try {
       await api.disconnectBot(appId);
+      showToast("Telegram Bot disconnected.", "info");
       loadBotData();
-    } catch (err) {
-      alert("Failed to disconnect bot.");
+    } catch (err: any) {
+      showToast(err.message || "Failed to disconnect bot.", "error");
     }
   };
 

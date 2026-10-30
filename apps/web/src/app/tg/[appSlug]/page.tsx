@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   ShoppingCart
 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
 declare global {
   interface Window {
@@ -28,6 +29,7 @@ interface PageProps {
 export default function TelegramMiniAppRuntime({ params }: PageProps) {
   const resolvedParams = use(params);
   const appSlug = resolvedParams.appSlug;
+  const { showToast } = useToast();
 
   const [appData, setAppData] = useState<any>(null);
   const [activePageId, setActivePageId] = useState<string>("");
@@ -132,7 +134,7 @@ export default function TelegramMiniAppRuntime({ params }: PageProps) {
           tg.MainButton.hide();
         } catch (err: any) {
           tg.HapticFeedback?.notificationOccurred("error");
-          alert(err.message || "Checkout failed.");
+          showToast(err.message || "Checkout failed.", "error");
         }
       };
 
@@ -360,3 +362,4 @@ export default function TelegramMiniAppRuntime({ params }: PageProps) {
     </>
   );
 }
+

@@ -39,3 +39,4 @@ async def apply_ai_spec(
     await db.commit()
     await db.refresh(app)
     return app
+

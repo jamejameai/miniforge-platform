@@ -46,3 +46,4 @@ class AppVersion(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
     app = relationship("App", back_populates="versions")
+

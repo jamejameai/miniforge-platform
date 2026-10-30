@@ -196,3 +196,4 @@ class AIGeneratorService:
             suggested_tables=suggested_tables,
             suggested_workflows=suggested_spec["workflows"]
         )
+

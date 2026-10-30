@@ -39,3 +39,4 @@ Launch the full platform stack with a single command:
 ```bash
 docker compose -f infrastructure/docker/docker-compose.yml up -d
 ```
+

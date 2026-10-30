@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 
 interface PageProps {
   params: Promise<{ appId: string }>;
@@ -30,6 +31,7 @@ interface PageProps {
 export default function WorkflowStudioPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const appId = resolvedParams.appId;
+  const { showToast } = useToast();
 
   const [appData, setAppData] = useState<any>(null);
   const [workflows, setWorkflows] = useState<any[]>([]);
@@ -110,8 +112,34 @@ export default function WorkflowStudioPage({ params }: PageProps) {
       setActiveWorkflowId(created.id);
       setIsCreateOpen(false);
       setNewWfName("");
+      showToast(`Automation "${created.name}" created`, "success");
     } catch (err: any) {
-      alert(err.message || "Failed to create workflow.");
+      showToast(err.message || "Failed to create workflow.", "error");
+    }
+  };
+
+  const handleToggleWorkflow = async (workflowId: string, currentActive: boolean) => {
+    try {
+      const updated = await api.updateWorkflow(workflowId, { is_active: !currentActive });
+      setWorkflows(workflows.map((w) => (w.id === workflowId ? { ...w, is_active: updated.is_active } : w)));
+      showToast(`Workflow ${updated.is_active ? "activated" : "paused"}`, "info");
+    } catch (err: any) {
+      showToast(err.message || "Failed to toggle workflow.", "error");
+    }
+  };
+
+  const handleDeleteWorkflow = async (workflowId: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+    try {
+      await api.deleteWorkflow(workflowId);
+      const remaining = workflows.filter((w) => w.id !== workflowId);
+      setWorkflows(remaining);
+      if (activeWorkflowId === workflowId) {
+        setActiveWorkflowId(remaining[0]?.id || "");
+      }
+      showToast("Workflow deleted", "info");
+    } catch (err: any) {
+      showToast(err.message || "Failed to delete workflow.", "error");
     }
   };
 
@@ -128,11 +156,12 @@ export default function WorkflowStudioPage({ params }: PageProps) {
       };
       const res = await api.runTestWorkflow(activeWorkflow.id, payload);
       setTestResult(res);
+      showToast("Workflow triggered successfully", "success");
       // Refresh execution history
       const execs = await api.listWorkflowExecutions(activeWorkflow.id);
       setExecutions(execs);
     } catch (err: any) {
-      alert(err.message || "Workflow test failed.");
+      showToast(err.message || "Workflow test failed.", "error");
     } finally {
       setIsTesting(false);
     }
@@ -195,11 +224,16 @@ export default function WorkflowStudioPage({ params }: PageProps) {
                           : "text-[#171717] hover:bg-white"
                       }`}
                     >
-                      <div className="truncate">
+                      <div className="truncate mr-2">
                         <div className="truncate">{w.name}</div>
                         <div className="text-[10px] text-[#777777] font-mono mt-0.5">{w.trigger_type}</div>
                       </div>
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${
+                          w.is_active !== false ? "bg-emerald-500" : "bg-neutral-300"
+                        }`}
+                        title={w.is_active !== false ? "Active" : "Paused"}
+                      />
                     </button>
                   );
                 })
@@ -213,22 +247,46 @@ export default function WorkflowStudioPage({ params }: PageProps) {
               <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-bold text-[#171717]">{activeWorkflow.name}</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-[#171717]">{activeWorkflow.name}</h2>
+                      <Badge variant={activeWorkflow.is_active !== false ? "success" : "secondary"} className="text-[10px]">
+                        {activeWorkflow.is_active !== false ? "Active" : "Paused"}
+                      </Badge>
+                    </div>
                     <p className="text-xs text-[#777777] mt-0.5">
                       Server-side automation pipeline executing transactionally on backend events.
                     </p>
                   </div>
 
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleRunTest}
-                    disabled={isTesting}
-                    className="text-xs gap-1.5"
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                    <span>{isTesting ? "Executing Pipeline..." : "Test Trigger"}</span>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleToggleWorkflow(activeWorkflow.id, activeWorkflow.is_active !== false)}
+                      className="text-xs"
+                    >
+                      {activeWorkflow.is_active !== false ? "Pause Automation" : "Activate Automation"}
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleRunTest}
+                      disabled={isTesting}
+                      className="text-xs gap-1.5"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      <span>{isTesting ? "Executing Pipeline..." : "Test Trigger"}</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteWorkflow(activeWorkflow.id, activeWorkflow.name)}
+                      className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 p-2"
+                      title="Delete workflow"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Visual Flow Representation */}
@@ -453,3 +511,4 @@ export default function WorkflowStudioPage({ params }: PageProps) {
     </div>
   );
 }
+

@@ -95,3 +95,4 @@ CREATE INDEX idx_app_records_tenant_table ON app_records(tenant_id, table_id);
   - `reference_id`: UUID (order_id or adjustment batch id)
   - `notes`: String
   - `created_at`: Timestamp
+

@@ -196,3 +196,4 @@ async def verify_telegram_identity(
         session_token=session_token,
         message="Telegram identity verified successfully."
     )
+

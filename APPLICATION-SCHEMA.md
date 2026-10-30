@@ -103,3 +103,4 @@ export interface ComponentInstance {
 ```
 
 This strict JSON representation enables schema migrations, AI generation, and runtime portability.
+

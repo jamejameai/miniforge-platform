@@ -96,3 +96,4 @@ class InventoryMovement(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
     product = relationship("POSProduct", back_populates="movements")
+

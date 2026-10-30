@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 
 interface PageProps {
   params: Promise<{ appId: string }>;
@@ -25,6 +26,7 @@ interface PageProps {
 export default function InventoryStudioPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const appId = resolvedParams.appId;
+  const { showToast } = useToast();
 
   const [appData, setAppData] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -72,9 +74,10 @@ export default function InventoryStudioPage({ params }: PageProps) {
         notes: adjustmentNotes,
       });
       setIsAdjustOpen(false);
+      showToast("Stock adjustment logged to ledger", "success");
       loadData();
     } catch (err: any) {
-      alert(err.message || "Adjustment failed.");
+      showToast(err.message || "Adjustment failed.", "error");
     }
   };
 
@@ -293,3 +296,4 @@ export default function InventoryStudioPage({ params }: PageProps) {
     </div>
   );
 }
+

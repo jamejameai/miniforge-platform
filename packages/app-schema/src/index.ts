@@ -132,3 +132,4 @@ export function createDefaultAppSpec(name: string, slug: string, tenantId: strin
     updatedAt: new Date().toISOString()
   };
 }
+

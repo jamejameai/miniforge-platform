@@ -37,3 +37,4 @@ export function Modal({ isOpen, onClose, title, description, children }: ModalPr
     </div>
   );
 }
+

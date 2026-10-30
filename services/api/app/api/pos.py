@@ -292,3 +292,4 @@ async def adjust_inventory(
     await db.commit()
     await db.refresh(movement)
     return movement
+

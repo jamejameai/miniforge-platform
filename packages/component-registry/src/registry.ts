@@ -194,3 +194,4 @@ export function getComponentMetadata(type: string): ComponentMetadata | undefine
 export function getAllComponents(): ComponentMetadata[] {
   return Object.values(COMPONENT_REGISTRY);
 }
+

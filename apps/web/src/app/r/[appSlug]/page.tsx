@@ -14,6 +14,7 @@ import {
   Menu,
   X
 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
 interface PageProps {
   params: Promise<{ appSlug: string }>;
@@ -22,6 +23,7 @@ interface PageProps {
 export default function StandaloneWebRuntime({ params }: PageProps) {
   const resolvedParams = use(params);
   const appSlug = resolvedParams.appSlug;
+  const { showToast } = useToast();
 
   const [appData, setAppData] = useState<any>(null);
   const [activePageId, setActivePageId] = useState<string>("");
@@ -85,8 +87,9 @@ export default function StandaloneWebRuntime({ params }: PageProps) {
       });
       setOrderSuccess(res.order_number);
       setCart([]);
+      showToast(`Order #${res.order_number} confirmed!`, "success");
     } catch (err: any) {
-      alert(err.message || "Checkout failed.");
+      showToast(err.message || "Checkout failed.", "error");
     }
   };
 
@@ -304,3 +307,4 @@ export default function StandaloneWebRuntime({ params }: PageProps) {
     </div>
   );
 }
+

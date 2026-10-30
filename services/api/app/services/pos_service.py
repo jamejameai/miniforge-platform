@@ -124,3 +124,4 @@ class POSService:
         await db.commit()
         await db.refresh(new_order)
         return new_order
+

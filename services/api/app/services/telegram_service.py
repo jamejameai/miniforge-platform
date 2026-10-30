@@ -83,3 +83,4 @@ class TelegramService:
                 return False, data.get("description", "Failed to send message.")
         except Exception as e:
             return False, str(e)
+

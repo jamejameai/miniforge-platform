@@ -10,6 +10,7 @@ import { ComponentPalette } from "@/components/studio/ComponentPalette";
 import { PageTreeNav } from "@/components/studio/PageTreeNav";
 import { VisualCanvas } from "@/components/studio/VisualCanvas";
 import { PropertiesInspector } from "@/components/studio/PropertiesInspector";
+import { useToast } from "@/components/ui/toast";
 import { Layers, PlusSquare } from "lucide-react";
 
 interface PageProps {
@@ -19,6 +20,7 @@ interface PageProps {
 export default function AppStudioPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const appId = resolvedParams.appId;
+  const { showToast } = useToast();
 
   const [appData, setAppData] = useState<any>(null);
   const [appSpec, setAppSpec] = useState<AppSpec | null>(null);
@@ -81,9 +83,10 @@ export default function AppStudioPage({ params }: PageProps) {
     try {
       setIsSaving(true);
       await api.updateApp(appId, { draft_spec: appSpec });
-    } catch (err) {
+      showToast("Draft saved successfully", "success");
+    } catch (err: any) {
       console.error("Save failed:", err);
-      alert("Failed to save draft.");
+      showToast(err.message || "Failed to save draft.", "error");
     } finally {
       setIsSaving(false);
     }

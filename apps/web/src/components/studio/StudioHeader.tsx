@@ -16,6 +16,7 @@ import { Button } from "@/lib/../components/ui/button";
 import { Badge } from "@/lib/../components/ui/badge";
 import { Modal } from "@/lib/../components/ui/modal";
 import { Input } from "@/lib/../components/ui/input";
+import { useToast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
 
 interface StudioHeaderProps {
@@ -53,6 +54,7 @@ export function StudioHeader({
   onSave,
   onPublished,
 }: StudioHeaderProps) {
+  const { showToast } = useToast();
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [changelog, setChangelog] = useState("Production release snapshot");
   const [isPublishing, setIsPublishing] = useState(false);
@@ -64,12 +66,13 @@ export function StudioHeader({
       const res = await api.publishApp(appId, changelog);
       setPublishSuccess(res.version_number);
       if (onPublished) onPublished(res.version_number);
+      showToast(`Snapshot version ${res.version_number} published successfully!`, "success");
       setTimeout(() => {
         setIsPublishModalOpen(false);
         setPublishSuccess(null);
       }, 1500);
     } catch (err: any) {
-      alert(err.message || "Publishing failed.");
+      showToast(err.message || "Publishing failed.", "error");
     } finally {
       setIsPublishing(false);
     }
@@ -257,3 +260,4 @@ export function StudioHeader({
     </>
   );
 }
+

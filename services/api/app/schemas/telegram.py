@@ -21,3 +21,4 @@ class TelegramVerifyResponse(BaseModel):
     telegram_user: Optional[Dict[str, Any]] = None
     session_token: Optional[str] = None
     message: Optional[str] = None
+

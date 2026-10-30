@@ -154,10 +154,10 @@ async def create_app(
     db: AsyncSession = Depends(get_db)
 ):
     slug = req.slug or re.sub(r"[^a-z0-9]+", "-", req.name.lower()).strip("-")
-    # Verify slug uniqueness within tenant
-    slug_stmt = select(App).where(App.tenant_id == current_user.tenant_id, App.slug == slug)
+    # Verify slug uniqueness globally
+    slug_stmt = select(App.id).where(App.slug == slug).limit(1)
     res = await db.execute(slug_stmt)
-    if res.scalar_one_or_none():
+    if res.scalar():
         slug = f"{slug}-{uuid.uuid4().hex[:4]}"
 
     draft_spec = build_default_spec(req.name, slug, req.template or "blank")
@@ -344,9 +344,9 @@ async def get_published_app_by_slug(slug: str, db: AsyncSession = Depends(get_db
     Public runtime endpoint used by the MiniForge Runtime renderer.
     Returns the active published snapshot specification.
     """
-    stmt = select(App).where(App.slug == slug)
+    stmt = select(App).where(App.slug == slug).order_by(desc(App.created_at))
     res = await db.execute(stmt)
-    app = res.scalar_one_or_none()
+    app = res.scalars().first()
     if not app:
         raise HTTPException(status_code=404, detail="Published application not found.")
 
@@ -359,7 +359,7 @@ async def get_published_app_by_slug(slug: str, db: AsyncSession = Depends(get_db
             AppVersion.version_number == app.active_version_number
         )
         ver_res = await db.execute(ver_stmt)
-        active_ver = ver_res.scalar_one_or_none()
+        active_ver = ver_res.scalars().first()
         spec = active_ver.spec_json if active_ver else app.draft_spec
 
     return {
@@ -369,3 +369,4 @@ async def get_published_app_by_slug(slug: str, db: AsyncSession = Depends(get_db
         "version": app.active_version_number,
         "spec": spec
     }
+

@@ -162,6 +162,48 @@ async def list_records(
 
     return records
 
+@router.post("/tables/{table_id}/records/bulk", response_model=List[RecordOut])
+async def bulk_import_records(
+    table_id: str,
+    records_data: List[Dict[str, Any]],
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Bulk import CSV/JSON records into a dynamic table with schema validation.
+    """
+    t_stmt = select(AppTable).where(AppTable.id == table_id, AppTable.tenant_id == current_user.tenant_id)
+    t_res = await db.execute(t_stmt)
+    table = t_res.scalar_one_or_none()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found.")
+
+    f_stmt = select(AppField).where(AppField.table_id == table_id)
+    f_res = await db.execute(f_stmt)
+    fields = f_res.scalars().all()
+
+    created_records = []
+    for item in records_data:
+        record_data = item.copy()
+        for f in fields:
+            if f.is_required and (f.name not in record_data or record_data[f.name] in (None, "")):
+                continue
+            if f.name not in record_data and f.default_value is not None:
+                record_data[f.name] = f.default_value
+
+        rec = AppRecord(
+            tenant_id=current_user.tenant_id,
+            table_id=table.id,
+            data=record_data
+        )
+        db.add(rec)
+        created_records.append(rec)
+
+    await db.commit()
+    for rec in created_records:
+        await db.refresh(rec)
+    return created_records
+
 @router.post("/tables/{table_id}/records", response_model=RecordOut)
 async def create_record(
     table_id: str,
@@ -232,3 +274,4 @@ async def delete_record(
     await db.delete(record)
     await db.commit()
     return {"message": "Record deleted successfully."}
+

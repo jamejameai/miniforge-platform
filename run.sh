@@ -68,3 +68,4 @@ echo ""
 
 # Wait for both background processes
 wait
+

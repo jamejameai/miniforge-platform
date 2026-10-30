@@ -52,3 +52,4 @@ Applications in MiniForge are **not** generated as bespoke codebases that drift 
 - **Database**: PostgreSQL with JSONB indexing (aiosqlite supported for zero-dependency local verification).
 - **Cache & Queue**: Redis for session tracking, rate limiting, and async workflow execution.
 - **Security**: AES-256-GCM token encryption, PBKDF2/Argon2 password hashing, JWT sessions, strict tenant filtering.
+

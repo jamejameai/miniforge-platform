@@ -53,3 +53,4 @@ class AppRecord(Base):
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
     table = relationship("AppTable", back_populates="records")
+

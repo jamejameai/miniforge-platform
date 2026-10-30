@@ -35,3 +35,4 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
     tenant = relationship("Tenant", back_populates="users")
+
