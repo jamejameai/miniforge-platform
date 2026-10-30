@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { PageSpec, ComponentNode, ThemeConfig, NavigationConfig } from "@miniforge/app-schema";
 import {
   Smartphone,
@@ -19,10 +19,21 @@ import {
   ZoomIn,
   ZoomOut,
   Grid3X3,
-  GraduationCap
+  GraduationCap,
+  Lock,
+  Unlock,
+  Eye,
+  EyeOff,
+  MoreVertical,
+  CheckCircle2,
+  AlertCircle,
+  Info,
+  Tag,
+  Image as ImageIcon
 } from "lucide-react";
 import { Button } from "@/lib/../components/ui/button";
 import { useLearningMode } from "@/lib/learning-mode";
+import { resolveComponentStyles, resolveMotionStyles } from "@/lib/studio-runtime";
 
 const COMPONENT_LEARNING_GUIDE: Record<string, string> = {
   HeroBanner: "The visual anchor of your app. Highlights your value proposition with a high-contrast headline, badge, and primary action button.",
@@ -34,7 +45,10 @@ const COMPONENT_LEARNING_GUIDE: Record<string, string> = {
   StatCard: "Presents key performance metrics or counts with a prominent number and positive/negative trend badge.",
   Table: "Renders tabular records. Can be connected to custom dynamic database tables created in Database Studio.",
   Input: "Collects user input such as inquiries, contact numbers, or feedback forms.",
-  Divider: "Creates breathing room and visual rhythm between distinct content modules."
+  Divider: "Creates breathing room and visual rhythm between distinct content modules.",
+  Badge: "Compact status pill or tag used for highlights, categories, or notifications.",
+  Image: "Framed responsive image asset with aspect ratio control.",
+  Notice: "Alert callout box to inform users about announcements or order instructions."
 };
 
 interface VisualCanvasProps {
@@ -43,11 +57,14 @@ interface VisualCanvasProps {
   navigation: NavigationConfig;
   viewport: "mobile" | "tablet" | "desktop";
   selectedComponentId: string | null;
+  selectedComponentIds?: string[];
   isPreview: boolean;
-  onSelectComponent: (id: string | null) => void;
+  onSelectComponent: (id: string | null, isMulti?: boolean) => void;
   onMoveComponent: (compIndex: number, direction: "up" | "down") => void;
   onDeleteComponent: (compIndex: number) => void;
   onDuplicateComponent?: (compIndex: number) => void;
+  onToggleLockComponent?: (compId: string) => void;
+  onToggleHideComponent?: (compId: string) => void;
   onNavigatePage?: (pageId: string) => void;
   onOpenAddModal?: () => void;
 }
@@ -58,17 +75,34 @@ export function VisualCanvas({
   navigation,
   viewport,
   selectedComponentId,
+  selectedComponentIds = [],
   isPreview,
   onSelectComponent,
   onMoveComponent,
   onDeleteComponent,
   onDuplicateComponent,
+  onToggleLockComponent,
+  onToggleHideComponent,
   onNavigatePage,
   onOpenAddModal,
 }: VisualCanvasProps) {
   const [zoom, setZoom] = useState(100);
   const [showGrid, setShowGrid] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    compIndex: number;
+    comp: ComponentNode;
+  } | null>(null);
+
   const { isBeginner } = useLearningMode();
+
+  // Close context menu on outside click
+  useEffect(() => {
+    const handleOutsideClick = () => setContextMenu(null);
+    window.addEventListener("click", handleOutsideClick);
+    return () => window.removeEventListener("click", handleOutsideClick);
+  }, []);
 
   const selectedComp = page.components.find((c) => c.id === selectedComponentId);
 
@@ -84,17 +118,28 @@ export function VisualCanvas({
   };
 
   const renderComponent = (comp: ComponentNode, index: number) => {
-    const isSelected = selectedComponentId === comp.id && !isPreview;
+    const isSelected = (selectedComponentId === comp.id || selectedComponentIds.includes(comp.id)) && !isPreview;
+    const isLocked = comp.isLocked || false;
+    const isHidden = comp.isHidden || false;
+
+    // In preview mode, completely hide hidden components
+    if (isPreview && isHidden) return null;
 
     let content = null;
     const props = comp.props || {};
+    const customStyles = resolveComponentStyles(comp.styles, theme);
+    const motionResult = resolveMotionStyles(comp.motion);
 
     switch (comp.type) {
       case "HeroBanner":
         content = (
           <div
-            className="p-6 rounded-xl border border-[#E8E8EA] bg-[#F7F7F8] relative overflow-hidden"
-            style={{ borderRadius: theme.borderRadius }}
+            className="p-6 rounded-xl border border-[#E8E8EA] bg-[#F7F7F8] relative overflow-hidden transition-all"
+            style={{
+              borderRadius: comp.styles?.borderRadius || theme.borderRadius,
+              backgroundColor: comp.styles?.backgroundColor || "#F7F7F8",
+              ...customStyles,
+            }}
           >
             {props.badge && (
               <span
@@ -131,7 +176,7 @@ export function VisualCanvas({
 
       case "SectionHeading":
         content = (
-          <div className="py-2">
+          <div className="py-2" style={customStyles}>
             <h3 className="text-base font-bold text-[#171717] tracking-tight">{props.title}</h3>
             {props.subtitle && <p className="text-xs text-[#777777] mt-0.5">{props.subtitle}</p>}
           </div>
@@ -140,7 +185,10 @@ export function VisualCanvas({
 
       case "ProductGrid":
         content = (
-          <div className={`grid gap-3 ${props.columns === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+          <div
+            className={`grid gap-3 ${props.columns === 1 ? "grid-cols-1" : "grid-cols-2"}`}
+            style={customStyles}
+          >
             {[
               { id: "1", name: "Single Origin Pour Over", price: "$5.50", category: "Coffee", image: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&auto=format&fit=crop&q=80" },
               { id: "2", name: "Ceremonial Matcha Oat Latte", price: "$6.00", category: "Beverages", image: "https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=400&auto=format&fit=crop&q=80" },
@@ -183,7 +231,7 @@ export function VisualCanvas({
         content = (
           <div
             className="p-4 rounded-xl border border-[#E8E8EA] bg-white space-y-3"
-            style={{ borderRadius: theme.borderRadius }}
+            style={{ borderRadius: theme.borderRadius, ...customStyles }}
           >
             <div className="flex items-center justify-between border-b border-[#E8E8EA] pb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-[#777777]">Your Items (2)</span>
@@ -223,9 +271,9 @@ export function VisualCanvas({
 
       case "Button":
         content = (
-          <div>
+          <div style={customStyles}>
             <button
-              className="px-4 py-2 rounded-md text-xs font-semibold text-white shadow-sm"
+              className="px-4 py-2 rounded-md text-xs font-semibold text-white shadow-sm transition-transform active:scale-95"
               style={{
                 backgroundColor: props.variant === "primary" ? theme.primaryColor : "#171717",
                 borderRadius: theme.borderRadius
@@ -241,7 +289,7 @@ export function VisualCanvas({
         content = (
           <div
             className="p-4 rounded-xl border border-[#E8E8EA] bg-white shadow-xs"
-            style={{ borderRadius: theme.borderRadius }}
+            style={{ borderRadius: theme.borderRadius, ...customStyles }}
           >
             <h4 className="text-sm font-semibold text-[#171717]">{props.title}</h4>
             <p className="text-xs text-[#777777] mt-1">{props.description}</p>
@@ -253,7 +301,7 @@ export function VisualCanvas({
         content = (
           <div
             className="p-3.5 rounded-lg border border-[#E8E8EA] bg-white flex items-center justify-between"
-            style={{ borderRadius: theme.borderRadius }}
+            style={{ borderRadius: theme.borderRadius, ...customStyles }}
           >
             <div>
               <span className="text-[11px] font-medium text-[#777777]">{props.title}</span>
@@ -270,7 +318,7 @@ export function VisualCanvas({
 
       case "Input":
         content = (
-          <div className="space-y-1">
+          <div className="space-y-1" style={customStyles}>
             <label className="text-xs font-medium text-[#171717]">{props.label}</label>
             <input
               type="text"
@@ -284,7 +332,82 @@ export function VisualCanvas({
         break;
 
       case "Divider":
-        content = <div className="h-px bg-[#E8E8EA] w-full" style={{ margin: `${props.margin || 16}px 0` }} />;
+        content = (
+          <div
+            className="h-px bg-[#E8E8EA] w-full"
+            style={{ margin: `${props.margin || 16}px 0`, ...customStyles }}
+          />
+        );
+        break;
+
+      case "Badge":
+        content = (
+          <div style={customStyles}>
+            <span
+              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                props.variant === "success"
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : props.variant === "warning"
+                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                  : props.variant === "secondary"
+                  ? "bg-gray-100 text-gray-700 border border-gray-200"
+                  : "text-white"
+              }`}
+              style={{
+                backgroundColor: props.variant === "primary" ? theme.primaryColor : undefined,
+              }}
+            >
+              <Tag className="w-3 h-3" />
+              <span>{props.text || "Badge"}</span>
+            </span>
+          </div>
+        );
+        break;
+
+      case "Image":
+        content = (
+          <div
+            className="w-full rounded-xl overflow-hidden border border-[#E8E8EA] bg-[#F7F7F8]"
+            style={{ borderRadius: theme.borderRadius, ...customStyles }}
+          >
+            <img
+              src={props.url || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80"}
+              alt={props.alt || "Banner image"}
+              className={`w-full object-cover ${
+                props.aspectRatio === "16/9"
+                  ? "aspect-video"
+                  : props.aspectRatio === "4/3"
+                  ? "aspect-4/3"
+                  : props.aspectRatio === "1/1"
+                  ? "aspect-square"
+                  : "h-48"
+              }`}
+            />
+          </div>
+        );
+        break;
+
+      case "Notice":
+        content = (
+          <div
+            className={`p-3 rounded-lg border flex items-start gap-2.5 text-xs ${
+              props.status === "success"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : props.status === "warning"
+                ? "bg-amber-50 border-amber-200 text-amber-800"
+                : props.status === "error"
+                ? "bg-red-50 border-red-200 text-red-800"
+                : "bg-blue-50 border-blue-200 text-blue-800"
+            }`}
+            style={{ borderRadius: theme.borderRadius, ...customStyles }}
+          >
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <h5 className="font-bold text-xs">{props.title || "Notice"}</h5>
+              <p className="text-[11px] opacity-90 mt-0.5">{props.message}</p>
+            </div>
+          </div>
+        );
         break;
 
       default:
@@ -300,7 +423,21 @@ export function VisualCanvas({
         key={comp.id}
         onClick={(e) => {
           e.stopPropagation();
+          onSelectComponent(comp.id, e.shiftKey);
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
           onSelectComponent(comp.id);
+          setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            compIndex: index,
+            comp,
+          });
+        }}
+        style={{
+          ...motionResult.style,
         }}
         className={`relative group/comp cursor-pointer transition-all ${
           isSelected
@@ -308,19 +445,21 @@ export function VisualCanvas({
             : !isPreview
             ? "hover:ring-1 hover:ring-[#E8E8EA] hover:ring-offset-1 rounded-lg"
             : ""
-        }`}
+        } ${isHidden && !isPreview ? "opacity-50 border border-dashed border-amber-400 p-1 rounded-lg" : ""}`}
       >
         {/* Selected Component Quick Action Toolbar */}
         {isSelected && (
           <div className="absolute -top-7 right-0 z-20 flex items-center gap-1 bg-[#171717] text-white px-2 py-1 rounded shadow-md text-[10px] font-mono animate-in fade-in duration-100">
             <span className="font-semibold text-[#D4146E]">{comp.type}</span>
+            {isLocked && <Lock className="w-2.5 h-2.5 text-amber-400 ml-0.5" />}
+            {isHidden && <EyeOff className="w-2.5 h-2.5 text-sky-400 ml-0.5" />}
             <div className="h-2.5 w-px bg-white/20 mx-0.5" />
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onMoveComponent(index, "up");
+                if (!isLocked) onMoveComponent(index, "up");
               }}
-              disabled={index === 0}
+              disabled={index === 0 || isLocked}
               className="hover:text-[#D4146E] disabled:opacity-30"
               title="Move up"
             >
@@ -329,15 +468,15 @@ export function VisualCanvas({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onMoveComponent(index, "down");
+                if (!isLocked) onMoveComponent(index, "down");
               }}
-              disabled={index === page.components.length - 1}
+              disabled={index === page.components.length - 1 || isLocked}
               className="hover:text-[#D4146E] disabled:opacity-30"
               title="Move down"
             >
               <MoveDown className="w-3 h-3" />
             </button>
-            {onDuplicateComponent && (
+            {onDuplicateComponent && !isLocked && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -349,16 +488,18 @@ export function VisualCanvas({
                 <Copy className="w-3 h-3" />
               </button>
             )}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteComponent(index);
-              }}
-              className="hover:text-red-400"
-              title="Delete"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+            {!isLocked && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteComponent(index);
+                }}
+                className="hover:text-red-400"
+                title="Delete"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
           </div>
         )}
         {content}
@@ -415,10 +556,10 @@ export function VisualCanvas({
               <Smartphone className="w-8 h-8 text-[#777777] mb-2" />
               <h4 className="text-sm font-semibold text-[#171717]">This page is empty</h4>
               <p className="text-xs text-[#777777] max-w-xs mt-1 mb-3">
-                Click any component in the left palette to start building your application.
+                Select a component from the left palette to start designing.
               </p>
               {onOpenAddModal && (
-                <Button variant="primary" size="sm" onClick={onOpenAddModal} className="text-xs gap-1">
+                <Button variant="primary" size="sm" onClick={onOpenAddModal} className="text-xs gap-1 bg-[#D4146E] text-white">
                   <Plus className="w-3.5 h-3.5" />
                   <span>Insert Component</span>
                 </Button>
@@ -503,6 +644,117 @@ export function VisualCanvas({
         </div>
       )}
 
+      {/* Floating Right-Click Context Menu */}
+      {contextMenu && !isPreview && (
+        <div
+          className="fixed z-50 bg-white border border-[#E8E8EA] shadow-xl rounded-lg py-1 w-44 text-xs select-none animate-in fade-in duration-100"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1 text-[10px] font-mono text-[#777777] border-b border-[#E8E8EA] uppercase font-bold">
+            {contextMenu.comp.type}
+          </div>
+
+          {onDuplicateComponent && !contextMenu.comp.isLocked && (
+            <button
+              onClick={() => {
+                onDuplicateComponent(contextMenu.compIndex);
+                setContextMenu(null);
+              }}
+              className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#F7F7F8] text-[#171717] text-left"
+            >
+              <Copy className="w-3.5 h-3.5 text-[#777777]" />
+              <span>Duplicate</span>
+            </button>
+          )}
+
+          {onToggleLockComponent && (
+            <button
+              onClick={() => {
+                onToggleLockComponent(contextMenu.comp.id);
+                setContextMenu(null);
+              }}
+              className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#F7F7F8] text-[#171717] text-left"
+            >
+              {contextMenu.comp.isLocked ? (
+                <>
+                  <Unlock className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Unlock</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5 text-[#D4146E]" />
+                  <span>Lock</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {onToggleHideComponent && (
+            <button
+              onClick={() => {
+                onToggleHideComponent(contextMenu.comp.id);
+                setContextMenu(null);
+              }}
+              className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#F7F7F8] text-[#171717] text-left"
+            >
+              {contextMenu.comp.isHidden ? (
+                <>
+                  <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Show</span>
+                </>
+              ) : (
+                <>
+                  <EyeOff className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Hide</span>
+                </>
+              )}
+            </button>
+          )}
+
+          <div className="h-px bg-[#E8E8EA] my-1" />
+
+          <button
+            onClick={() => {
+              onMoveComponent(contextMenu.compIndex, "up");
+              setContextMenu(null);
+            }}
+            disabled={contextMenu.compIndex === 0 || contextMenu.comp.isLocked}
+            className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#F7F7F8] text-[#171717] text-left disabled:opacity-30"
+          >
+            <MoveUp className="w-3.5 h-3.5 text-[#777777]" />
+            <span>Move Up</span>
+          </button>
+
+          <button
+            onClick={() => {
+              onMoveComponent(contextMenu.compIndex, "down");
+              setContextMenu(null);
+            }}
+            disabled={contextMenu.compIndex === page.components.length - 1 || contextMenu.comp.isLocked}
+            className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#F7F7F8] text-[#171717] text-left disabled:opacity-30"
+          >
+            <MoveDown className="w-3.5 h-3.5 text-[#777777]" />
+            <span>Move Down</span>
+          </button>
+
+          <div className="h-px bg-[#E8E8EA] my-1" />
+
+          {!contextMenu.comp.isLocked && (
+            <button
+              onClick={() => {
+                onDeleteComponent(contextMenu.compIndex);
+                setContextMenu(null);
+              }}
+              className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-red-50 text-red-600 text-left"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-red-500" />
+              <span>Delete</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Beginner Mode Educational Guide Card */}
       {isBeginner && selectedComp && !isPreview && (
         <div
@@ -521,4 +773,3 @@ export function VisualCanvas({
     </div>
   );
 }
-

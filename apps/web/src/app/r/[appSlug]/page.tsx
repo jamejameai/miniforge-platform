@@ -12,9 +12,14 @@ import {
   Home,
   Grid,
   Menu,
-  X
+  X,
+  Tag,
+  Info,
+  Activity,
+  Table as TableIcon
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { resolveComponentStyles, resolveMotionStyles } from "@/lib/studio-runtime";
 
 interface PageProps {
   params: Promise<{ appSlug: string }>;
@@ -43,7 +48,6 @@ export default function StandaloneWebRuntime({ params }: PageProps) {
           const home = spec.pages.find((p) => p.isHome) || spec.pages[0];
           setActivePageId(home.id);
         }
-        // Load live products for this app
         const prods = await api.listProducts(data.id);
         setProducts(prods);
       } catch (err) {
@@ -74,6 +78,7 @@ export default function StandaloneWebRuntime({ params }: PageProps) {
     } else {
       setCart([...cart, { ...product, qty: 1 }]);
     }
+    showToast(`Added ${product.name} to cart`, "success");
   };
 
   const handleCheckout = async () => {
@@ -96,15 +101,20 @@ export default function StandaloneWebRuntime({ params }: PageProps) {
   const cartTotal = cart.reduce((sum, item) => sum + parseFloat(item.price || 0) * item.qty, 0);
 
   const renderComponent = (comp: ComponentNode) => {
+    if (comp.isHidden) return null;
+
     const props = comp.props || {};
+    const customStyles = resolveComponentStyles(comp.styles, theme);
+    const motionStyles = resolveMotionStyles(comp.motion);
+
+    let innerContent = null;
 
     switch (comp.type) {
       case "HeroBanner":
-        return (
+        innerContent = (
           <div
-            key={comp.id}
-            className="p-8 md:p-12 rounded-2xl border border-[#E8E8EA] bg-[#F7F7F8] mb-6 relative overflow-hidden"
-            style={{ borderRadius: theme.borderRadius }}
+            className="p-8 md:p-12 rounded-2xl border border-[#E8E8EA] bg-[#F7F7F8] relative overflow-hidden"
+            style={{ borderRadius: comp.styles?.borderRadius || theme.borderRadius, ...customStyles }}
           >
             {props.badge && (
               <span
@@ -136,23 +146,27 @@ export default function StandaloneWebRuntime({ params }: PageProps) {
             )}
           </div>
         );
+        break;
 
       case "SectionHeading":
-        return (
-          <div key={comp.id} className="py-3 mb-2">
+        innerContent = (
+          <div className="py-3" style={customStyles}>
             <h2 className="text-xl font-bold text-[#171717] tracking-tight">{props.title}</h2>
             {props.subtitle && <p className="text-xs text-[#777777] mt-0.5">{props.subtitle}</p>}
           </div>
         );
+        break;
 
       case "ProductGrid":
         const displayProds = products.length > 0 ? products : [
           { id: "1", name: "Single Origin Pour Over", price: "5.50", image_url: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&auto=format&fit=crop&q=80" },
-          { id: "2", name: "Matcha Oat Latte", price: "6.00", image_url: "https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=400&auto=format&fit=crop&q=80" }
-        ];
+          { id: "2", name: "Matcha Oat Latte", price: "6.00", image_url: "https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=400&auto=format&fit=crop&q=80" },
+          { id: "3", name: "Almond Croissant", price: "4.25", image_url: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&auto=format&fit=crop&q=80" },
+          { id: "4", name: "Cold Brew Reserve", price: "5.00", image_url: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=400&auto=format&fit=crop&q=80" }
+        ].slice(0, props.limit || 4);
 
-        return (
-          <div key={comp.id} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        innerContent = (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" style={customStyles}>
             {displayProds.map((p) => (
               <div
                 key={p.id}
@@ -187,13 +201,13 @@ export default function StandaloneWebRuntime({ params }: PageProps) {
             ))}
           </div>
         );
+        break;
 
       case "CartView":
-        return (
+        innerContent = (
           <div
-            key={comp.id}
-            className="p-6 rounded-2xl border border-[#E8E8EA] bg-white max-w-xl mx-auto shadow-xs space-y-4 mb-6"
-            style={{ borderRadius: theme.borderRadius }}
+            className="p-6 rounded-2xl border border-[#E8E8EA] bg-white max-w-xl mx-auto shadow-xs space-y-4"
+            style={{ borderRadius: theme.borderRadius, ...customStyles }}
           >
             <h3 className="text-base font-bold text-[#171717]">Shopping Cart</h3>
             {cart.length === 0 ? (
@@ -235,10 +249,150 @@ export default function StandaloneWebRuntime({ params }: PageProps) {
             )}
           </div>
         );
+        break;
+
+      case "Button":
+        innerContent = (
+          <div style={customStyles}>
+            <button
+              onClick={() => {
+                if (props.action?.type === "NAVIGATE" && props.action?.target) {
+                  setActivePageId(props.action.target);
+                } else if (props.action?.type === "SHOW_TOAST") {
+                  showToast(props.action.payload?.message || "Action executed", "info");
+                }
+              }}
+              className="px-6 py-2.5 rounded-lg text-xs font-semibold text-white shadow-sm transition-transform active:scale-95"
+              style={{
+                backgroundColor: props.variant === "primary" ? theme.primaryColor : "#171717",
+                borderRadius: theme.borderRadius
+              }}
+            >
+              {props.label || "Action Button"}
+            </button>
+          </div>
+        );
+        break;
+
+      case "Card":
+        innerContent = (
+          <div
+            className="p-5 rounded-xl border border-[#E8E8EA] bg-white shadow-xs"
+            style={{ borderRadius: theme.borderRadius, ...customStyles }}
+          >
+            <h4 className="text-sm font-bold text-[#171717]">{props.title}</h4>
+            <p className="text-xs text-[#777777] mt-1 leading-relaxed">{props.description}</p>
+          </div>
+        );
+        break;
+
+      case "StatCard":
+        innerContent = (
+          <div
+            className="p-4 rounded-xl border border-[#E8E8EA] bg-white flex items-center justify-between"
+            style={{ borderRadius: theme.borderRadius, ...customStyles }}
+          >
+            <div>
+              <span className="text-xs font-medium text-[#777777]">{props.title}</span>
+              <div className="text-xl font-extrabold text-[#171717] mt-0.5">{props.value}</div>
+            </div>
+            {props.change && (
+              <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                {props.change}
+              </span>
+            )}
+          </div>
+        );
+        break;
+
+      case "Badge":
+        innerContent = (
+          <div style={customStyles}>
+            <span
+              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                props.variant === "success"
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : props.variant === "warning"
+                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                  : props.variant === "secondary"
+                  ? "bg-gray-100 text-gray-700 border border-gray-200"
+                  : "text-white"
+              }`}
+              style={{
+                backgroundColor: props.variant === "primary" ? theme.primaryColor : undefined,
+              }}
+            >
+              <Tag className="w-3 h-3" />
+              <span>{props.text || "Badge"}</span>
+            </span>
+          </div>
+        );
+        break;
+
+      case "Image":
+        innerContent = (
+          <div
+            className="w-full rounded-2xl overflow-hidden border border-[#E8E8EA] bg-[#F7F7F8]"
+            style={{ borderRadius: theme.borderRadius, ...customStyles }}
+          >
+            <img
+              src={props.url || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80"}
+              alt={props.alt || "Banner image"}
+              className={`w-full object-cover ${
+                props.aspectRatio === "16/9"
+                  ? "aspect-video"
+                  : props.aspectRatio === "4/3"
+                  ? "aspect-4/3"
+                  : props.aspectRatio === "1/1"
+                  ? "aspect-square"
+                  : "h-64"
+              }`}
+            />
+          </div>
+        );
+        break;
+
+      case "Notice":
+        innerContent = (
+          <div
+            className={`p-4 rounded-xl border flex items-start gap-3 text-xs ${
+              props.status === "success"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : props.status === "warning"
+                ? "bg-amber-50 border-amber-200 text-amber-800"
+                : props.status === "error"
+                ? "bg-red-50 border-red-200 text-red-800"
+                : "bg-blue-50 border-blue-200 text-blue-800"
+            }`}
+            style={{ borderRadius: theme.borderRadius, ...customStyles }}
+          >
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <h5 className="font-bold text-xs">{props.title || "Notice"}</h5>
+              <p className="text-[11px] opacity-90 mt-0.5">{props.message}</p>
+            </div>
+          </div>
+        );
+        break;
+
+      case "Divider":
+        innerContent = (
+          <div
+            className="h-px bg-[#E8E8EA] w-full"
+            style={{ margin: `${props.margin || 16}px 0`, ...customStyles }}
+          />
+        );
+        break;
 
       default:
-        return null;
+        innerContent = null;
     }
+
+    return (
+      <div key={comp.id} style={motionStyles.style} className="mb-4">
+        {innerContent}
+      </div>
+    );
   };
 
   return (
@@ -307,4 +461,3 @@ export default function StandaloneWebRuntime({ params }: PageProps) {
     </div>
   );
 }
-

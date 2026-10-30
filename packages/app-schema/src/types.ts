@@ -36,6 +36,7 @@ export type ActionType =
   | 'CALL_API'
   | 'TELEGRAM_HAPTIC'
   | 'SHOW_TOAST'
+  | 'OPEN_MODAL'
   | 'CLOSE_MODAL';
 
 export interface ActionDefinition {
@@ -63,12 +64,92 @@ export interface ComponentPropertySchema {
   description?: string;
 }
 
+export interface ComponentStyles {
+  width?: 'auto' | 'full' | string;
+  height?: 'auto' | 'full' | string;
+  padding?: string;
+  margin?: string;
+  display?: 'block' | 'flex' | 'grid';
+  flexDirection?: 'row' | 'column';
+  justifyContent?: 'flex-start' | 'center' | 'flex-end' | 'space-between' | 'space-around';
+  alignItems?: 'flex-start' | 'center' | 'flex-end' | 'stretch';
+  gap?: string;
+  backgroundColor?: string;
+  backgroundGradient?: string;
+  textColor?: string;
+  fontSize?: string;
+  fontWeight?: string;
+  textAlign?: 'left' | 'center' | 'right';
+  borderColor?: string;
+  borderWidth?: string;
+  borderStyle?: 'solid' | 'dashed' | 'dotted' | 'none';
+  borderRadius?: string;
+  boxShadow?: 'none' | 'subtle' | 'medium' | 'float';
+  opacity?: number;
+}
+
+export type MotionPreset =
+  | 'none'
+  | 'fadeIn'
+  | 'slideUp'
+  | 'slideDown'
+  | 'slideLeft'
+  | 'slideRight'
+  | 'scaleIn'
+  | 'bounceIn'
+  | 'pulse';
+
+export interface MotionSpec {
+  preset?: MotionPreset;
+  trigger?: 'onLoad' | 'onHover' | 'onClick' | 'onScroll';
+  duration?: number; // ms, default 350
+  delay?: number; // ms, default 0
+  easing?: 'linear' | 'ease' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'spring';
+  hoverScale?: number; // e.g. 1.03
+  tapScale?: number; // e.g. 0.97
+}
+
+export interface InteractionRule {
+  id: string;
+  trigger: 'click' | 'hover' | 'submit' | 'change' | 'mount';
+  condition?: {
+    field: string;
+    operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'is_empty';
+    value: any;
+  };
+  action: ActionDefinition;
+}
+
+export interface DataBindingSpec {
+  sourceType: 'none' | 'database_table' | 'pos_products' | 'cart' | 'user';
+  tableId?: string;
+  fieldMapping?: Record<string, string>;
+  filterField?: string;
+  filterValue?: string;
+  sortField?: string;
+  sortOrder?: 'asc' | 'desc';
+  limit?: number;
+}
+
+export interface ResponsiveOverrides {
+  mobile?: Partial<ComponentStyles>;
+  tablet?: Partial<ComponentStyles>;
+  desktop?: Partial<ComponentStyles>;
+}
+
 export interface ComponentNode {
   id: string;
   type: string;
   name?: string;
+  isLocked?: boolean;
+  isHidden?: boolean;
   props: Record<string, any>;
+  styles?: ComponentStyles;
   style?: Record<string, any>;
+  motion?: MotionSpec;
+  interactions?: InteractionRule[];
+  dataBinding?: DataBindingSpec;
+  responsive?: ResponsiveOverrides;
   children?: ComponentNode[];
   events?: {
     onClick?: ActionDefinition[];
@@ -152,4 +233,3 @@ export const DEFAULT_THEME: ThemeConfig = {
   fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   borderRadius: '8px',
 };
-

@@ -91,7 +91,7 @@ export const COMPONENT_REGISTRY: Record<string, ComponentMetadata> = {
     description: 'Customizable button with Telegram haptic feedback and navigation triggers.',
     defaultProps: {
       label: 'Click Here',
-      variant: 'primary', // primary | secondary | outline
+      variant: 'primary',
       size: 'default',
       action: { type: 'NAVIGATE', target: '' }
     },
@@ -184,6 +184,58 @@ export const COMPONENT_REGISTRY: Record<string, ComponentMetadata> = {
     propertySchemas: [
       { name: 'margin', label: 'Vertical Margin', type: 'string', defaultValue: '16px', category: 'style' }
     ]
+  },
+
+  Badge: {
+    type: 'Badge',
+    label: 'Badge / Tag',
+    category: 'feedback',
+    icon: 'Tag',
+    description: 'Compact status tag or pill indicator.',
+    defaultProps: {
+      text: 'New Feature',
+      variant: 'primary'
+    },
+    propertySchemas: [
+      { name: 'text', label: 'Badge Text', type: 'string', defaultValue: 'New Feature', category: 'content' },
+      { name: 'variant', label: 'Variant', type: 'select', defaultValue: 'primary', options: [{ label: 'Primary Brand', value: 'primary' }, { label: 'Neutral Gray', value: 'secondary' }, { label: 'Success Green', value: 'success' }, { label: 'Warning Amber', value: 'warning' }], category: 'style' }
+    ]
+  },
+
+  Image: {
+    type: 'Image',
+    label: 'Image Banner',
+    category: 'layout',
+    icon: 'Image',
+    description: 'Full-width or framed responsive image with aspect ratio control.',
+    defaultProps: {
+      url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
+      alt: 'Banner image',
+      aspectRatio: '16/9'
+    },
+    propertySchemas: [
+      { name: 'url', label: 'Image URL', type: 'image_url', defaultValue: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80', category: 'content' },
+      { name: 'alt', label: 'Alt Text', type: 'string', defaultValue: 'Banner image', category: 'content' },
+      { name: 'aspectRatio', label: 'Aspect Ratio', type: 'select', defaultValue: '16/9', options: [{ label: '16:9 Landscape', value: '16/9' }, { label: '4:3 Standard', value: '4/3' }, { label: '1:1 Square', value: '1/1' }, { label: 'Auto', value: 'auto' }], category: 'layout' }
+    ]
+  },
+
+  Notice: {
+    type: 'Notice',
+    label: 'Notice Callout',
+    category: 'feedback',
+    icon: 'AlertCircle',
+    description: 'Informative alert box with icon and action link.',
+    defaultProps: {
+      title: 'Store Hours Notice',
+      message: 'Orders placed after 8 PM will be prepared the next morning at 7 AM.',
+      status: 'info'
+    },
+    propertySchemas: [
+      { name: 'title', label: 'Title', type: 'string', defaultValue: 'Store Hours Notice', category: 'content' },
+      { name: 'message', label: 'Message', type: 'string', defaultValue: 'Orders placed after 8 PM will be prepared next morning.', category: 'content' },
+      { name: 'status', label: 'Status', type: 'select', defaultValue: 'info', options: [{ label: 'Information (Neutral)', value: 'info' }, { label: 'Success (Green)', value: 'success' }, { label: 'Warning (Amber)', value: 'warning' }, { label: 'Error (Red)', value: 'error' }], category: 'style' }
+    ]
   }
 };
 
@@ -194,4 +246,3 @@ export function getComponentMetadata(type: string): ComponentMetadata | undefine
 export function getAllComponents(): ComponentMetadata[] {
   return Object.values(COMPONENT_REGISTRY);
 }
-

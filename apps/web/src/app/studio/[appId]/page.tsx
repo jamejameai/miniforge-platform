@@ -1,17 +1,35 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { AppSpec, PageSpec, ComponentNode, DEFAULT_THEME } from "@miniforge/app-schema";
+import {
+  AppSpec,
+  PageSpec,
+  ComponentNode,
+  DEFAULT_THEME,
+  ComponentStyles,
+  MotionSpec,
+  InteractionRule,
+  DataBindingSpec,
+  NavigationConfig
+} from "@miniforge/app-schema";
 import { COMPONENT_REGISTRY } from "@miniforge/component-registry";
 import { api } from "@/lib/api";
 import { StudioNav } from "@/components/studio/StudioNav";
 import { StudioHeader } from "@/components/studio/StudioHeader";
 import { ComponentPalette } from "@/components/studio/ComponentPalette";
 import { PageTreeNav } from "@/components/studio/PageTreeNav";
+import { AssetsManager } from "@/components/studio/AssetsManager";
+import { ThemeTokensEditor } from "@/components/studio/ThemeTokensEditor";
 import { VisualCanvas } from "@/components/studio/VisualCanvas";
 import { PropertiesInspector } from "@/components/studio/PropertiesInspector";
+import { CommandPalette } from "@/components/studio/CommandPalette";
 import { useToast } from "@/components/ui/toast";
-import { Layers, PlusSquare } from "lucide-react";
+import {
+  Layers,
+  PlusSquare,
+  Palette,
+  Image as ImageIcon
+} from "lucide-react";
 
 interface PageProps {
   params: Promise<{ appId: string }>;
@@ -28,10 +46,14 @@ export default function AppStudioPage({ params }: PageProps) {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [activePageId, setActivePageId] = useState<string>("");
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
+  const [selectedComponentIds, setSelectedComponentIds] = useState<string[]>([]);
   const [viewport, setViewport] = useState<"mobile" | "tablet" | "desktop">("mobile");
+  const [studioMode, setStudioMode] = useState<"design" | "logic">("design");
   const [isPreview, setIsPreview] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [leftTab, setLeftTab] = useState<"palette" | "hierarchy">("palette");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [leftTab, setLeftTab] = useState<"palette" | "hierarchy" | "tokens" | "assets">("palette");
 
   // Load app on mount
   useEffect(() => {
@@ -60,6 +82,7 @@ export default function AppStudioPage({ params }: PageProps) {
     setHistory([...updatedHistory, newSpec]);
     setHistoryIndex(updatedHistory.length);
     setAppSpec(newSpec);
+    setHasUnsavedChanges(true);
   };
 
   const handleUndo = () => {
@@ -67,6 +90,7 @@ export default function AppStudioPage({ params }: PageProps) {
       const prevIndex = historyIndex - 1;
       setHistoryIndex(prevIndex);
       setAppSpec(history[prevIndex]);
+      setHasUnsavedChanges(true);
     }
   };
 
@@ -75,6 +99,7 @@ export default function AppStudioPage({ params }: PageProps) {
       const nextIndex = historyIndex + 1;
       setHistoryIndex(nextIndex);
       setAppSpec(history[nextIndex]);
+      setHasUnsavedChanges(true);
     }
   };
 
@@ -83,6 +108,7 @@ export default function AppStudioPage({ params }: PageProps) {
     try {
       setIsSaving(true);
       await api.updateApp(appId, { draft_spec: appSpec });
+      setHasUnsavedChanges(false);
       showToast("Draft saved successfully", "success");
     } catch (err: any) {
       console.error("Save failed:", err);
@@ -92,6 +118,41 @@ export default function AppStudioPage({ params }: PageProps) {
     }
   };
 
+  // Keyboard Shortcuts (Cmd+S, Cmd+Z, Cmd+Shift+Z, Cmd+K, Delete)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts if user is typing in an input/textarea
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      } else if ((e.key === "Backspace" || e.key === "Delete") && !isInput && selectedComponentId) {
+        if (!appSpec) return;
+        const page = appSpec.pages.find((p) => p.id === activePageId);
+        const idx = page?.components.findIndex((c) => c.id === selectedComponentId);
+        if (idx !== undefined && idx >= 0 && !page?.components[idx]?.isLocked) {
+          e.preventDefault();
+          handleDeleteComponent(activePageId, idx);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [appSpec, activePageId, selectedComponentId, historyIndex, history]);
+
   // Add Component from Palette
   const handleAddComponent = (type: string) => {
     if (!appSpec) return;
@@ -100,6 +161,8 @@ export default function AppStudioPage({ params }: PageProps) {
       id: `comp-${Date.now()}`,
       type,
       props: meta ? { ...meta.defaultProps } : {},
+      styles: {},
+      motion: { preset: "fadeIn", duration: 350, delay: 0, easing: "spring" },
     };
 
     const updatedPages = appSpec.pages.map((p) => {
@@ -115,6 +178,7 @@ export default function AppStudioPage({ params }: PageProps) {
     const newSpec = { ...appSpec, pages: updatedPages };
     pushSpecChange(newSpec);
     setSelectedComponentId(newComponent.id);
+    setSelectedComponentIds([newComponent.id]);
   };
 
   // Move Component in Page
@@ -149,6 +213,64 @@ export default function AppStudioPage({ params }: PageProps) {
 
     pushSpecChange({ ...appSpec, pages: updatedPages });
     setSelectedComponentId(null);
+    setSelectedComponentIds([]);
+  };
+
+  // Duplicate Component
+  const handleDuplicateComponent = (pageId: string, compIndex: number) => {
+    if (!appSpec) return;
+    const page = appSpec.pages.find((p) => p.id === pageId);
+    if (!page || compIndex < 0 || compIndex >= page.components.length) return;
+    const targetComp = page.components[compIndex];
+    const duplicatedComp: ComponentNode = {
+      ...targetComp,
+      id: `comp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      props: JSON.parse(JSON.stringify(targetComp.props || {})),
+      styles: targetComp.styles ? JSON.parse(JSON.stringify(targetComp.styles)) : {},
+      motion: targetComp.motion ? JSON.parse(JSON.stringify(targetComp.motion)) : undefined,
+    };
+    const updatedComponents = [...page.components];
+    updatedComponents.splice(compIndex + 1, 0, duplicatedComp);
+    const updatedPages = appSpec.pages.map((p) =>
+      p.id === pageId ? { ...p, components: updatedComponents } : p
+    );
+    pushSpecChange({ ...appSpec, pages: updatedPages });
+    setSelectedComponentId(duplicatedComp.id);
+    setSelectedComponentIds([duplicatedComp.id]);
+  };
+
+  // Toggle Lock on Component
+  const handleToggleLockComponent = (pageId: string, compId: string) => {
+    if (!appSpec) return;
+    const updatedPages = appSpec.pages.map((p) => {
+      if (p.id === pageId) {
+        return {
+          ...p,
+          components: p.components.map((c) =>
+            c.id === compId ? { ...c, isLocked: !c.isLocked } : c
+          ),
+        };
+      }
+      return p;
+    });
+    pushSpecChange({ ...appSpec, pages: updatedPages });
+  };
+
+  // Toggle Hide on Component
+  const handleToggleHideComponent = (pageId: string, compId: string) => {
+    if (!appSpec) return;
+    const updatedPages = appSpec.pages.map((p) => {
+      if (p.id === pageId) {
+        return {
+          ...p,
+          components: p.components.map((c) =>
+            c.id === compId ? { ...c, isHidden: !c.isHidden } : c
+          ),
+        };
+      }
+      return p;
+    });
+    pushSpecChange({ ...appSpec, pages: updatedPages });
   };
 
   // Update Component Props
@@ -165,7 +287,40 @@ export default function AppStudioPage({ params }: PageProps) {
       }
       return p;
     });
+    pushSpecChange({ ...appSpec, pages: updatedPages });
+  };
 
+  // Update Component Styles
+  const handleUpdateComponentStyles = (compId: string, newStyles: ComponentStyles) => {
+    if (!appSpec) return;
+    const updatedPages = appSpec.pages.map((p) => {
+      if (p.id === activePageId) {
+        return {
+          ...p,
+          components: p.components.map((c) =>
+            c.id === compId ? { ...c, styles: newStyles } : c
+          ),
+        };
+      }
+      return p;
+    });
+    pushSpecChange({ ...appSpec, pages: updatedPages });
+  };
+
+  // Update Component Motion
+  const handleUpdateComponentMotion = (compId: string, newMotion: MotionSpec) => {
+    if (!appSpec) return;
+    const updatedPages = appSpec.pages.map((p) => {
+      if (p.id === activePageId) {
+        return {
+          ...p,
+          components: p.components.map((c) =>
+            c.id === compId ? { ...c, motion: newMotion } : c
+          ),
+        };
+      }
+      return p;
+    });
     pushSpecChange({ ...appSpec, pages: updatedPages });
   };
 
@@ -183,6 +338,7 @@ export default function AppStudioPage({ params }: PageProps) {
     pushSpecChange(newSpec);
     setActivePageId(newPage.id);
     setSelectedComponentId(null);
+    setSelectedComponentIds([]);
   };
 
   // Delete Page
@@ -193,26 +349,7 @@ export default function AppStudioPage({ params }: PageProps) {
     pushSpecChange(newSpec);
     setActivePageId(updatedPages[0].id);
     setSelectedComponentId(null);
-  };
-
-  // Duplicate Component
-  const handleDuplicateComponent = (pageId: string, compIndex: number) => {
-    if (!appSpec) return;
-    const page = appSpec.pages.find((p) => p.id === pageId);
-    if (!page || compIndex < 0 || compIndex >= page.components.length) return;
-    const targetComp = page.components[compIndex];
-    const duplicatedComp: ComponentNode = {
-      ...targetComp,
-      id: `comp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      props: JSON.parse(JSON.stringify(targetComp.props || {}))
-    };
-    const updatedComponents = [...page.components];
-    updatedComponents.splice(compIndex + 1, 0, duplicatedComp);
-    const updatedPages = appSpec.pages.map((p) =>
-      p.id === pageId ? { ...p, components: updatedComponents } : p
-    );
-    pushSpecChange({ ...appSpec, pages: updatedPages });
-    setSelectedComponentId(duplicatedComp.id);
+    setSelectedComponentIds([]);
   };
 
   // Update Page Attributes
@@ -223,7 +360,6 @@ export default function AppStudioPage({ params }: PageProps) {
         return { ...p, ...updates };
       }
       if (updates.isHome) {
-        // Only one home page allowed
         return { ...p, isHome: false };
       }
       return p;
@@ -239,6 +375,40 @@ export default function AppStudioPage({ params }: PageProps) {
       theme: { ...appSpec.theme, ...updates },
     };
     pushSpecChange(newSpec);
+  };
+
+  // Update Navigation
+  const handleUpdateNavigation = (updates: Partial<NavigationConfig>) => {
+    if (!appSpec) return;
+    const newSpec = {
+      ...appSpec,
+      navigation: { ...appSpec.navigation, ...updates },
+    };
+    pushSpecChange(newSpec);
+  };
+
+  // Handle Component Selection (Single or Multi with Shift)
+  const handleSelectComponent = (id: string | null, isMulti: boolean = false) => {
+    if (!id) {
+      setSelectedComponentId(null);
+      setSelectedComponentIds([]);
+      return;
+    }
+
+    if (isMulti) {
+      if (selectedComponentIds.includes(id)) {
+        const next = selectedComponentIds.filter((item) => item !== id);
+        setSelectedComponentIds(next);
+        setSelectedComponentId(next.length > 0 ? next[next.length - 1] : null);
+      } else {
+        const next = [...selectedComponentIds, id];
+        setSelectedComponentIds(next);
+        setSelectedComponentId(id);
+      }
+    } else {
+      setSelectedComponentId(id);
+      setSelectedComponentIds([id]);
+    }
   };
 
   if (!appData || !appSpec) {
@@ -272,6 +442,8 @@ export default function AppStudioPage({ params }: PageProps) {
           versionNumber={appData.active_version_number}
           viewport={viewport}
           onViewportChange={setViewport}
+          studioMode={studioMode}
+          onStudioModeChange={setStudioMode}
           isPreview={isPreview}
           onPreviewToggle={() => setIsPreview(!isPreview)}
           canUndo={historyIndex > 0}
@@ -279,59 +451,99 @@ export default function AppStudioPage({ params }: PageProps) {
           onUndo={handleUndo}
           onRedo={handleRedo}
           isSaving={isSaving}
+          hasUnsavedChanges={hasUnsavedChanges}
           onSave={handleSave}
           onPublished={(newVer) => setAppData({ ...appData, active_version_number: newVer })}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         />
 
         {/* Builder Work Area */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Panel: Component Palette & Hierarchy Switcher */}
+          {/* Left Panel: Creation & System Tabs */}
           {!isPreview && (
-            <div className="w-72 border-r border-[#E8E8EA] bg-white flex flex-col shrink-0">
+            <div className="w-80 border-r border-[#E8E8EA] bg-white flex flex-col shrink-0">
               {/* Tab Selector */}
               <div className="flex border-b border-[#E8E8EA] bg-[#F7F7F8] p-1 gap-1">
                 <button
                   onClick={() => setLeftTab("palette")}
-                  className={`flex-1 py-1.5 px-3 rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`flex-1 py-1.5 px-2 rounded text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
                     leftTab === "palette"
                       ? "bg-white text-[#D4146E] shadow-xs"
                       : "text-[#777777] hover:text-[#171717]"
                   }`}
+                  title="Components Library"
                 >
                   <PlusSquare className="w-3.5 h-3.5" />
-                  <span>Components</span>
+                  <span className="hidden sm:inline">Add</span>
                 </button>
                 <button
                   onClick={() => setLeftTab("hierarchy")}
-                  className={`flex-1 py-1.5 px-3 rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`flex-1 py-1.5 px-2 rounded text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
                     leftTab === "hierarchy"
                       ? "bg-white text-[#D4146E] shadow-xs"
                       : "text-[#777777] hover:text-[#171717]"
                   }`}
+                  title="Pages & Layers"
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>Pages & Tree</span>
+                  <span className="hidden sm:inline">Layers</span>
+                </button>
+                <button
+                  onClick={() => setLeftTab("tokens")}
+                  className={`flex-1 py-1.5 px-2 rounded text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
+                    leftTab === "tokens"
+                      ? "bg-white text-[#D4146E] shadow-xs"
+                      : "text-[#777777] hover:text-[#171717]"
+                  }`}
+                  title="Design Tokens"
+                >
+                  <Palette className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Theme</span>
+                </button>
+                <button
+                  onClick={() => setLeftTab("assets")}
+                  className={`flex-1 py-1.5 px-2 rounded text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
+                    leftTab === "assets"
+                      ? "bg-white text-[#D4146E] shadow-xs"
+                      : "text-[#777777] hover:text-[#171717]"
+                  }`}
+                  title="Curated Stock Assets"
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Assets</span>
                 </button>
               </div>
 
               {/* Tab Contents */}
               <div className="flex-1 overflow-hidden">
-                {leftTab === "palette" ? (
+                {leftTab === "palette" && (
                   <ComponentPalette onAddComponent={handleAddComponent} />
-                ) : (
+                )}
+                {leftTab === "hierarchy" && (
                   <PageTreeNav
                     pages={appSpec.pages}
                     activePageId={activePageId}
                     selectedComponentId={selectedComponentId}
                     onSelectPage={setActivePageId}
-                    onSelectComponent={setSelectedComponentId}
+                    onSelectComponent={(id) => handleSelectComponent(id)}
                     onAddPage={handleAddPage}
                     onDeletePage={handleDeletePage}
                     onMoveComponent={handleMoveComponent}
                     onDeleteComponent={handleDeleteComponent}
                     onDuplicateComponent={handleDuplicateComponent}
+                    onToggleLockComponent={(pageId, compId) => handleToggleLockComponent(pageId, compId)}
+                    onToggleHideComponent={(pageId, compId) => handleToggleHideComponent(pageId, compId)}
                   />
                 )}
+                {leftTab === "tokens" && (
+                  <ThemeTokensEditor
+                    theme={appSpec.theme || DEFAULT_THEME}
+                    navigation={appSpec.navigation}
+                    onUpdateTheme={handleUpdateTheme}
+                    onUpdateNavigation={handleUpdateNavigation}
+                  />
+                )}
+                {leftTab === "assets" && <AssetsManager />}
               </div>
             </div>
           )}
@@ -343,11 +555,14 @@ export default function AppStudioPage({ params }: PageProps) {
             navigation={appSpec.navigation}
             viewport={viewport}
             selectedComponentId={selectedComponentId}
+            selectedComponentIds={selectedComponentIds}
             isPreview={isPreview}
-            onSelectComponent={setSelectedComponentId}
+            onSelectComponent={handleSelectComponent}
             onMoveComponent={(idx, dir) => handleMoveComponent(activePageId, idx, dir)}
             onDeleteComponent={(idx) => handleDeleteComponent(activePageId, idx)}
             onDuplicateComponent={(idx) => handleDuplicateComponent(activePageId, idx)}
+            onToggleLockComponent={(compId) => handleToggleLockComponent(activePageId, compId)}
+            onToggleHideComponent={(compId) => handleToggleHideComponent(activePageId, compId)}
             onNavigatePage={setActivePageId}
             onOpenAddModal={() => setLeftTab("palette")}
           />
@@ -360,12 +575,31 @@ export default function AppStudioPage({ params }: PageProps) {
               allPages={appSpec.pages}
               selectedComponent={selectedComponent}
               onUpdateComponentProps={handleUpdateComponentProps}
+              onUpdateComponentStyles={handleUpdateComponentStyles}
+              onUpdateComponentMotion={handleUpdateComponentMotion}
               onUpdatePage={handleUpdatePage}
               onUpdateTheme={handleUpdateTheme}
             />
           )}
         </div>
       </div>
+
+      {/* Global Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        pages={appSpec.pages}
+        onSelectPage={setActivePageId}
+        onAddComponent={handleAddComponent}
+        onViewportChange={setViewport}
+        onTogglePreview={() => setIsPreview(!isPreview)}
+        onSave={handleSave}
+        onPublish={() => {
+          // Open publish modal via studio header trigger or action
+          const publishBtn = document.querySelector('button[title="Publish Snapshot"]') as HTMLButtonElement;
+          if (publishBtn) publishBtn.click();
+        }}
+      />
     </div>
   );
 }
