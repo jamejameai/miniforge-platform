@@ -64,17 +64,33 @@ miniforce/
 
 ## Quick Start
 
-### 1. Backend Service (FastAPI)
+### Single-Command All-in-One Startup (Recommended)
+
+Run the entire platform (FastAPI backend + Next.js frontend studio) with a single command:
+
+```bash
+./run.sh
+# or
+./start.sh
+```
+
+This script automatically verifies port availability, initializes Python and Node environments if needed, starts both services, and cleanly shuts everything down when you press `Ctrl+C`.
+
+---
+
+### Manual Step-by-Step Startup
+
+#### 1. Backend Service (FastAPI)
 
 ```bash
 cd services/api
-uv venv
+uv venv # or python3 -m venv .venv
 source .venv/bin/activate
-uv pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+pip install -r requirements.txt
+PYTHONPATH=. uvicorn app.main:app --reload --port 8000
 ```
 
-### 2. Frontend Platform (Next.js Studio & Runtime)
+#### 2. Frontend Platform (Next.js Studio & Runtime)
 
 ```bash
 cd apps/web

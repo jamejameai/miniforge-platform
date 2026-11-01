@@ -30,15 +30,25 @@ fi
 if [ ! -d "services/api/.venv" ]; then
   echo "📦 Initializing Python virtual environment..."
   cd services/api
-  uv venv
-  uv pip install -r requirements.txt
+  if command -v uv >/dev/null 2>&1; then
+    uv venv
+    uv pip install -r requirements.txt
+  else
+    python3 -m venv .venv
+    .venv/bin/pip install --upgrade pip
+    .venv/bin/pip install -r requirements.txt
+  fi
   cd "$ROOT_DIR"
 fi
 
 # 2. Setup Node dependencies if needed
 if [ ! -d "node_modules" ] || [ ! -d "apps/web/node_modules" ]; then
   echo "📦 Installing Node dependencies..."
-  pnpm install
+  if command -v pnpm >/dev/null 2>&1; then
+    pnpm install
+  elif command -v npm >/dev/null 2>&1; then
+    npx pnpm install
+  fi
 fi
 
 # Cleanup on exit (Ctrl+C)
